@@ -83,6 +83,8 @@ The panel now uses two seeded web accounts stored in the `panel_users` collectio
 - `admin` / `osdp`: full control of bridge connect/disconnect, reader commands, enrollment, schedules, firmware upload, and terminal access
 - `demo` / `db2`: read-only viewer access for dashboard, live activity, events, access log, comms monitor, and system logs
 
+For better operational security, the login page no longer exposes preset buttons or inline default credentials. Admins can manage seeded panel passwords from the Users page by either choosing a new password or resetting a seeded account back to its repository default.
+
 The `demo` account is intended for DB2 report demonstrations and teacher review, not for configuration work.
 
 ## Public Sharing with ngrok
@@ -94,6 +96,8 @@ If you want to expose the panel temporarily over the internet for a demo, start 
 ```
 
 The script starts `ngrok http 5000`, waits for the local ngrok API on `http://127.0.0.1:4040`, and prints the public HTTPS URL. You can then sign in with `demo / db2` for a safe read-only walkthrough.
+
+If you rotated the seeded panel passwords earlier, reset them from the Users page or with `osdpAccess.resetPanelUserPassword('demo')` before you start the public demo.
 
 ## Firmware Build and Flash
 

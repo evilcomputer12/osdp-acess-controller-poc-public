@@ -25,7 +25,8 @@ from models import (
     create_schedule, update_schedule, delete_schedule,
     check_schedule, check_reader_access,
     log_system, get_system_logs,
-    get_panel_user_by_username,
+    get_panel_user_by_username, list_panel_users, has_panel_user_default_password,
+    set_panel_user_password, reset_panel_user_password,
 )
 
 logging.basicConfig(level=logging.INFO,
@@ -388,10 +389,13 @@ def _bridge_not_connected_response():
 def _panel_user_payload(user_doc):
     if not user_doc:
         return None
+    username = user_doc.get("username")
     return {
-        "username": user_doc.get("username"),
+        "username": username,
         "role": user_doc.get("role", "viewer"),
-        "display_name": user_doc.get("display_name") or user_doc.get("username"),
+        "display_name": user_doc.get("display_name") or username,
+        "active": user_doc.get("active", True),
+        "can_reset_password": has_panel_user_default_password(username),
     }
 
 
@@ -570,6 +574,50 @@ def api_auth_logout():
 @login_required
 def api_auth_me():
     return jsonify({"ok": True, "user": _panel_user_payload(_current_panel_user())})
+
+
+@app.route("/api/panel_users")
+@login_required
+def api_panel_users():
+    user_doc = _current_panel_user()
+    if user_doc.get("role") != "admin":
+        return _auth_error(403, "admin access required")
+    return jsonify([_panel_user_payload(panel_user) for panel_user in list_panel_users(db, active_only=False)])
+
+
+@app.route("/api/panel_users/<username>/password", methods=["PUT"])
+def api_panel_user_password(username):
+    actor, response = _require_panel_admin()
+    if response is not None:
+        return response
+
+    data = request.get_json(silent=True) or {}
+    new_password = str(data.get("password", ""))
+    if len(new_password) < 3:
+        return _auth_error(400, "password must be at least 3 characters")
+
+    result = set_panel_user_password(db, username, new_password)
+    if result.matched_count == 0:
+        return _auth_error(404, "panel user not found")
+
+    log_system(db, "info", "auth", f"Panel password changed: {username} by {actor['username']}")
+    return jsonify({"ok": True, "username": username})
+
+
+@app.route("/api/panel_users/<username>/password/reset", methods=["POST"])
+def api_panel_user_password_reset(username):
+    actor, response = _require_panel_admin()
+    if response is not None:
+        return response
+
+    result = reset_panel_user_password(db, username)
+    if result is None:
+        return _auth_error(404, "default password not configured for panel user")
+    if result.matched_count == 0:
+        return _auth_error(404, "panel user not found")
+
+    log_system(db, "info", "auth", f"Panel password reset to default: {username} by {actor['username']}")
+    return jsonify({"ok": True, "username": username})
 
 @app.route("/")
 def index():

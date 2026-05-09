@@ -35,6 +35,9 @@ const saturdayNight = new Date('2026-05-09T22:00:00Z');
 
 banner('1. Reset and initialize demo database');
 show('resetDatabase({ dropDatabase: true })', demoApi.resetDatabase({ dropDatabase: true }));
+show('listPanelUsers({ activeOnly: false })', demoApi.listPanelUsers({ activeOnly: false }));
+showResult('resetPanelUserPassword("admin")', demoApi.resetPanelUserPassword('admin'));
+show('getPanelUserByUsername("admin")', demoApi.getPanelUserByUsername('admin'));
 
 banner('2. Create users');
 const martinId = demoApi.createUser({

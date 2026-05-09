@@ -50,12 +50,6 @@ body {
   color: #8ab4ff;
 }
 
-.auth-presets {
-  display: flex;
-  gap: 0.75rem;
-  margin: 1rem 0 1.25rem;
-}
-
 .auth-note {
   margin-top: 1rem;
   font-size: 0.88rem;

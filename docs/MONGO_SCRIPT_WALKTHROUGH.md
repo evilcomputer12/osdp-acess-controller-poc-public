@@ -27,7 +27,7 @@ The helper library provides all core database operations used by the project:
 
 1. collection creation and index setup
 2. default schedule and web-panel account seeding
-3. panel user listing for the Flask login layer
+3. panel user listing and default-password reset helpers for the Flask login layer
 4. user CRUD
 5. credential CRUD for cards and PINs
 6. schedule CRUD
@@ -73,7 +73,7 @@ The library starts by defining the target collection set, the two default schedu
 
 ### 2. Panel User Layer
 
-The `panel_users` collection stores the fixed web-panel accounts used by the Flask login screen. In this project they are seeded automatically as `admin` and `demo`, with roles `admin` and `viewer`. This collection is separate from access-control `users` because it models UI operators rather than cardholders.
+The `panel_users` collection stores the fixed web-panel accounts used by the Flask login screen. In this project they are seeded automatically as `admin` and `demo`, with roles `admin` and `viewer`. This collection is separate from access-control `users` because it models UI operators rather than cardholders. The shell helper also exposes `resetPanelUserPassword()` and `resetAllPanelUserPasswords()` so the seeded defaults can be restored directly from `mongosh` before a demo.
 
 ### 3. User Layer
 
@@ -148,7 +148,7 @@ This step proves that the demo database starts clean and that initialization cre
 }
 ```
 
-The `panel_users` count is `2` immediately after initialization because the script seeds the fixed web accounts used by the Flask admin panel: `admin` and `demo`.
+The `panel_users` count is `2` immediately after initialization because the script seeds the fixed web accounts used by the Flask admin panel: `admin` and `demo`. The same opening step in the live transcript also demonstrates `resetPanelUserPassword("admin")`, which shows that the seeded default can be restored from Mongo shell commands as part of the same model.
 
 ### Step 2: Create Users
 

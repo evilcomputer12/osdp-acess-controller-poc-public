@@ -44,27 +44,13 @@ function LoginScreen({ onLogin, pending, error }) {
     await onLogin({ username, password });
   };
 
-  const usePreset = (nextUsername, nextPassword) => {
-    setUsername(nextUsername);
-    setPassword(nextPassword);
-  };
-
   return (
     <div className="auth-shell">
       <div className="auth-card">
         <div className="auth-header">
           <span className="auth-eyebrow">OSDP Admin Panel</span>
           <h1>Sign in</h1>
-          <p className="text-secondary mb-0">Use the admin account for full control or the DB2 demo account for a read-only live view.</p>
-        </div>
-
-        <div className="auth-presets">
-          <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => usePreset('admin', 'osdp')}>
-            Admin preset
-          </button>
-          <button type="button" className="btn btn-sm btn-outline-info" onClick={() => usePreset('demo', 'db2')}>
-            Demo preset
-          </button>
+          <p className="text-secondary mb-0">Sign in with your assigned panel account to continue.</p>
         </div>
 
         <form onSubmit={submit}>
@@ -98,7 +84,7 @@ function LoginScreen({ onLogin, pending, error }) {
         </form>
 
         <div className="auth-note">
-          <strong>Roles:</strong> <code>admin / osdp</code> can configure readers, enroll users, and flash firmware. <code>demo / db2</code> can only view live activity and logs.
+          <strong>Access levels:</strong> Admin accounts can configure readers, enroll users, manage schedules, upload firmware, and use the terminal. Viewer accounts can inspect live activity and logs only.
         </div>
       </div>
     </div>

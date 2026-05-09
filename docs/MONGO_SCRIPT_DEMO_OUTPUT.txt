@@ -25,13 +25,67 @@
     "system_logs": 0
   }
 }
+-- listPanelUsers({ activeOnly: false })
+[
+  {
+    "_id": {
+      "$oid": "69ff1b4623cdef89407c2907"
+    },
+    "username": "admin",
+    "role": "admin",
+    "display_name": "OSDP Administrator",
+    "password_hash": "scrypt:32768:8:1$il0dUn4F7AkWapaL$cee1e40fd6b8841cbc6734c75b995df26e7bbf57988b0d5c9dd3de74a6d4a0a0f8da27b725a4d9d0763bdb11b8e322321264998918201f29740aa29e707407ba",
+    "active": true,
+    "created": {
+      "$date": "2026-05-09T11:32:22.363Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69ff1b4623cdef89407c2908"
+    },
+    "username": "demo",
+    "role": "viewer",
+    "display_name": "DB2 Demo Viewer",
+    "password_hash": "scrypt:32768:8:1$tFtKHzA0Mnuw3fFr$3beaabd087bceff6fa1707e8990b5ed254fff9300980bc7df8e5d37b64628d4ff6f77e1f95ce96850f883c3003576bce4b9cb0a6f40070daa14ae0792bfcaae6",
+    "active": true,
+    "created": {
+      "$date": "2026-05-09T11:32:22.366Z"
+    }
+  }
+]
+-- resetPanelUserPassword("admin")
+{
+  "acknowledged": true,
+  "insertedId": null,
+  "matchedCount": 1,
+  "modifiedCount": 1,
+  "upsertedCount": 0
+}
+-- getPanelUserByUsername("admin")
+{
+  "_id": {
+    "$oid": "69ff1b4623cdef89407c2907"
+  },
+  "username": "admin",
+  "role": "admin",
+  "display_name": "OSDP Administrator",
+  "password_hash": "scrypt:32768:8:1$il0dUn4F7AkWapaL$cee1e40fd6b8841cbc6734c75b995df26e7bbf57988b0d5c9dd3de74a6d4a0a0f8da27b725a4d9d0763bdb11b8e322321264998918201f29740aa29e707407ba",
+  "active": true,
+  "created": {
+    "$date": "2026-05-09T11:32:22.363Z"
+  },
+  "updated": {
+    "$date": "2026-05-09T11:32:22.380Z"
+  }
+}
 
 === 2. Create users ===
 -- users after create
 [
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "username": "martin",
     "full_name": "Martin Velichkovski",
@@ -42,12 +96,12 @@
     ],
     "schedule": "24/7",
     "created": {
-      "$date": "2026-05-09T10:22:04.156Z"
+      "$date": "2026-05-09T11:32:22.382Z"
     }
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2909"
+      "$oid": "69ff1b4623cdef89407c290b"
     },
     "username": "temp-delete",
     "full_name": "Temporary Demo User",
@@ -56,12 +110,12 @@
     "allowed_readers": [],
     "schedule": "24/7",
     "created": {
-      "$date": "2026-05-09T10:22:04.158Z"
+      "$date": "2026-05-09T11:32:22.383Z"
     }
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2908"
+      "$oid": "69ff1b4623cdef89407c290a"
     },
     "username": "visitor",
     "full_name": "Weekend Visitor",
@@ -72,7 +126,7 @@
     ],
     "schedule": "Weekdays 8-18",
     "created": {
-      "$date": "2026-05-09T10:22:04.158Z"
+      "$date": "2026-05-09T11:32:22.382Z"
     }
   }
 ]
@@ -81,7 +135,7 @@
 -- getUserByUsername("martin")
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c2907"
+    "$oid": "69ff1b4623cdef89407c2909"
   },
   "username": "martin",
   "full_name": "Martin Velichkovski",
@@ -92,7 +146,7 @@
   ],
   "schedule": "24/7",
   "created": {
-    "$date": "2026-05-09T10:22:04.156Z"
+    "$date": "2026-05-09T11:32:22.382Z"
   }
 }
 -- updateUser(martin)
@@ -106,7 +160,7 @@
 -- getUserById(martinId)
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c2907"
+    "$oid": "69ff1b4623cdef89407c2909"
   },
   "username": "martin",
   "full_name": "Martin V.",
@@ -118,7 +172,7 @@
   ],
   "schedule": "24/7",
   "created": {
-    "$date": "2026-05-09T10:22:04.156Z"
+    "$date": "2026-05-09T11:32:22.382Z"
   }
 }
 -- deactivateUser(tempUserId)
@@ -132,7 +186,7 @@
 -- temp user after deactivate
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c2909"
+    "$oid": "69ff1b4623cdef89407c290b"
   },
   "username": "temp-delete",
   "full_name": "Temporary Demo User",
@@ -141,7 +195,7 @@
   "allowed_readers": [],
   "schedule": "24/7",
   "created": {
-    "$date": "2026-05-09T10:22:04.158Z"
+    "$date": "2026-05-09T11:32:22.383Z"
   }
 }
 
@@ -150,10 +204,25 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290d"
+      "$oid": "69ff1b4623cdef89407c290e"
     },
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2909"
+      "$oid": "69ff1b4623cdef89407c290a"
+    },
+    "type": "pin",
+    "pin_hex": "BEEF",
+    "reader": 1,
+    "enrolled": {
+      "$date": "2026-05-09T11:32:22.392Z"
+    },
+    "active": true
+  },
+  {
+    "_id": {
+      "$oid": "69ff1b4623cdef89407c290f"
+    },
+    "user_id": {
+      "$oid": "69ff1b4623cdef89407c290b"
     },
     "type": "card",
     "card_hex": "0BADF00D",
@@ -162,46 +231,31 @@
     "format": 1,
     "reader": 3,
     "enrolled": {
-      "$date": "2026-05-09T10:22:04.170Z"
+      "$date": "2026-05-09T11:32:22.392Z"
     },
     "active": true
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290c"
+      "$oid": "69ff1b4623cdef89407c290d"
     },
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2908"
-    },
-    "type": "pin",
-    "pin_hex": "BEEF",
-    "reader": 1,
-    "enrolled": {
-      "$date": "2026-05-09T10:22:04.168Z"
-    },
-    "active": true
-  },
-  {
-    "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290b"
-    },
-    "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "type": "pin",
     "pin_hex": "1A2B",
     "reader": 0,
     "enrolled": {
-      "$date": "2026-05-09T10:22:04.167Z"
+      "$date": "2026-05-09T11:32:22.391Z"
     },
     "active": true
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290a"
+      "$oid": "69ff1b4623cdef89407c290c"
     },
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "type": "card",
     "card_hex": "04A1B2C3D4",
@@ -210,7 +264,7 @@
     "format": 0,
     "reader": 0,
     "enrolled": {
-      "$date": "2026-05-09T10:22:04.166Z"
+      "$date": "2026-05-09T11:32:22.390Z"
     },
     "active": true
   }
@@ -218,10 +272,10 @@
 -- findCredentialByCard("04A1B2C3D4")
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c290a"
+    "$oid": "69ff1b4623cdef89407c290c"
   },
   "user_id": {
-    "$oid": "69ff0acc6bf888c43f7c2907"
+    "$oid": "69ff1b4623cdef89407c2909"
   },
   "type": "card",
   "card_hex": "04A1B2C3D4",
@@ -230,7 +284,7 @@
   "format": 0,
   "reader": 0,
   "enrolled": {
-    "$date": "2026-05-09T10:22:04.166Z"
+    "$date": "2026-05-09T11:32:22.390Z"
   },
   "active": true
 }
@@ -245,10 +299,10 @@
 -- getCredentialById(martinCardId)
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c290a"
+    "$oid": "69ff1b4623cdef89407c290c"
   },
   "user_id": {
-    "$oid": "69ff0acc6bf888c43f7c2907"
+    "$oid": "69ff1b4623cdef89407c2909"
   },
   "type": "card",
   "card_hex": "04A1B2C3D4",
@@ -257,7 +311,7 @@
   "format": 0,
   "reader": 2,
   "enrolled": {
-    "$date": "2026-05-09T10:22:04.166Z"
+    "$date": "2026-05-09T11:32:22.390Z"
   },
   "active": true
 }
@@ -272,10 +326,10 @@
 -- temp credential after revoke
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c290d"
+    "$oid": "69ff1b4623cdef89407c290f"
   },
   "user_id": {
-    "$oid": "69ff0acc6bf888c43f7c2909"
+    "$oid": "69ff1b4623cdef89407c290b"
   },
   "type": "card",
   "card_hex": "0BADF00D",
@@ -284,7 +338,7 @@
   "format": 1,
   "reader": 3,
   "enrolled": {
-    "$date": "2026-05-09T10:22:04.170Z"
+    "$date": "2026-05-09T11:32:22.392Z"
   },
   "active": false
 }
@@ -299,7 +353,7 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acccb35dbf571b92f34"
+      "$oid": "69ff1b46cb35dbf571b92f3a"
     },
     "name": "24/7",
     "periods": [
@@ -320,7 +374,7 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290f"
+      "$oid": "69ff1b4623cdef89407c2911"
     },
     "name": "Delete Me Schedule",
     "periods": [
@@ -335,7 +389,7 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acccb35dbf571b92f35"
+      "$oid": "69ff1b46cb35dbf571b92f3b"
     },
     "name": "Weekdays 8-18",
     "periods": [
@@ -354,7 +408,7 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290e"
+      "$oid": "69ff1b4623cdef89407c2910"
     },
     "name": "Weekend Lab",
     "periods": [
@@ -378,7 +432,7 @@
 -- getSchedule("Weekend Lab")
 {
   "_id": {
-    "$oid": "69ff0acc6bf888c43f7c290e"
+    "$oid": "69ff1b4623cdef89407c2910"
   },
   "name": "Weekend Lab",
   "periods": [
@@ -433,7 +487,7 @@
 {
   "acknowledged": true,
   "insertedId": {
-    "$oid": "69ff0acccb35dbf571b92f38"
+    "$oid": "69ff1b46cb35dbf571b92f3c"
   },
   "matchedCount": 0,
   "modifiedCount": 0,
@@ -443,7 +497,7 @@
 {
   "acknowledged": true,
   "insertedId": {
-    "$oid": "69ff0acccb35dbf571b92f39"
+    "$oid": "69ff1b46cb35dbf571b92f3d"
   },
   "matchedCount": 0,
   "modifiedCount": 0,
@@ -452,7 +506,7 @@
 -- getReader(0)
 {
   "_id": {
-    "$oid": "69ff0acccb35dbf571b92f38"
+    "$oid": "69ff1b46cb35dbf571b92f3c"
   },
   "index": 0,
   "addr": 0,
@@ -472,7 +526,7 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acccb35dbf571b92f38"
+      "$oid": "69ff1b46cb35dbf571b92f3c"
     },
     "index": 0,
     "addr": 0,
@@ -490,7 +544,7 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acccb35dbf571b92f39"
+      "$oid": "69ff1b46cb35dbf571b92f3d"
     },
     "index": 1,
     "addr": 1,
@@ -518,7 +572,7 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2910"
+      "$oid": "69ff1b4623cdef89407c2912"
     },
     "type": "card",
     "reader": 0,
@@ -530,12 +584,12 @@
     },
     "raw": "!CARD demo",
     "logged": {
-      "$date": "2026-05-09T10:22:04.190Z"
+      "$date": "2026-05-09T11:32:22.413Z"
     }
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2911"
+      "$oid": "69ff1b4623cdef89407c2913"
     },
     "type": "pd_status",
     "reader": 0,
@@ -545,12 +599,12 @@
     },
     "raw": "!PD 0 ONLINE",
     "logged": {
-      "$date": "2026-05-09T10:22:04.191Z"
+      "$date": "2026-05-09T11:32:22.414Z"
     }
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2912"
+      "$oid": "69ff1b4623cdef89407c2914"
     },
     "type": "demo_delete",
     "reader": 9,
@@ -559,7 +613,7 @@
     },
     "raw": "!DEMO DELETE",
     "logged": {
-      "$date": "2026-05-09T10:22:04.192Z"
+      "$date": "2026-05-09T11:32:22.415Z"
     }
   }
 ]
@@ -574,10 +628,10 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2914"
+      "$oid": "69ff1b4623cdef89407c2916"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.195Z"
+      "$date": "2026-05-09T11:32:22.419Z"
     },
     "level": "warn",
     "source": "demo",
@@ -585,10 +639,10 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2915"
+      "$oid": "69ff1b4623cdef89407c2917"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.195Z"
+      "$date": "2026-05-09T11:32:22.419Z"
     },
     "level": "info",
     "source": "demo-cleanup",
@@ -596,10 +650,10 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2913"
+      "$oid": "69ff1b4623cdef89407c2915"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.194Z"
+      "$date": "2026-05-09T11:32:22.418Z"
     },
     "level": "info",
     "source": "demo",
@@ -639,10 +693,10 @@
   "reason": "allowed",
   "credential": {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290a"
+      "$oid": "69ff1b4623cdef89407c290c"
     },
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "type": "card",
     "card_hex": "04A1B2C3D4",
@@ -651,13 +705,13 @@
     "format": 0,
     "reader": 2,
     "enrolled": {
-      "$date": "2026-05-09T10:22:04.166Z"
+      "$date": "2026-05-09T11:32:22.390Z"
     },
     "active": true
   },
   "user": {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "username": "martin",
     "full_name": "Martin V.",
@@ -669,7 +723,7 @@
     ],
     "schedule": "24/7",
     "created": {
-      "$date": "2026-05-09T10:22:04.156Z"
+      "$date": "2026-05-09T11:32:22.382Z"
     }
   }
 }
@@ -686,22 +740,22 @@
   "reason": "outside schedule",
   "credential": {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c290c"
+      "$oid": "69ff1b4623cdef89407c290e"
     },
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2908"
+      "$oid": "69ff1b4623cdef89407c290a"
     },
     "type": "pin",
     "pin_hex": "BEEF",
     "reader": 1,
     "enrolled": {
-      "$date": "2026-05-09T10:22:04.168Z"
+      "$date": "2026-05-09T11:32:22.392Z"
     },
     "active": true
   },
   "user": {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2908"
+      "$oid": "69ff1b4623cdef89407c290a"
     },
     "username": "visitor",
     "full_name": "Weekend Visitor",
@@ -712,7 +766,7 @@
     ],
     "schedule": "Weekdays 8-18",
     "created": {
-      "$date": "2026-05-09T10:22:04.158Z"
+      "$date": "2026-05-09T11:32:22.382Z"
     }
   }
 }
@@ -720,15 +774,15 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2918"
+      "$oid": "69ff1b4623cdef89407c291a"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.210Z"
+      "$date": "2026-05-09T11:32:22.435Z"
     },
     "card_hex": null,
     "pin_hex": "BEEF",
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2908"
+      "$oid": "69ff1b4623cdef89407c290a"
     },
     "username": "visitor",
     "granted": false,
@@ -737,10 +791,10 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2919"
+      "$oid": "69ff1b4623cdef89407c291b"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.210Z"
+      "$date": "2026-05-09T11:32:22.435Z"
     },
     "card_hex": "DEADBEEF",
     "pin_hex": null,
@@ -752,10 +806,10 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2917"
+      "$oid": "69ff1b4623cdef89407c2919"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.207Z"
+      "$date": "2026-05-09T11:32:22.431Z"
     },
     "card_hex": "FFFFFFFF",
     "pin_hex": null,
@@ -767,15 +821,15 @@
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2916"
+      "$oid": "69ff1b4623cdef89407c2918"
     },
     "ts": {
-      "$date": "2026-05-09T10:22:04.205Z"
+      "$date": "2026-05-09T11:32:22.430Z"
     },
     "card_hex": "04A1B2C3D4",
     "pin_hex": null,
     "user_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "username": "martin",
     "granted": true,
@@ -799,7 +853,7 @@
 [
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2907"
+      "$oid": "69ff1b4623cdef89407c2909"
     },
     "username": "martin",
     "full_name": "Martin V.",
@@ -811,12 +865,12 @@
     ],
     "schedule": "24/7",
     "created": {
-      "$date": "2026-05-09T10:22:04.156Z"
+      "$date": "2026-05-09T11:32:22.382Z"
     }
   },
   {
     "_id": {
-      "$oid": "69ff0acc6bf888c43f7c2908"
+      "$oid": "69ff1b4623cdef89407c290a"
     },
     "username": "visitor",
     "full_name": "Weekend Visitor",
@@ -827,7 +881,7 @@
     ],
     "schedule": "Weekdays 8-18",
     "created": {
-      "$date": "2026-05-09T10:22:04.158Z"
+      "$date": "2026-05-09T11:32:22.382Z"
     }
   }
 ]

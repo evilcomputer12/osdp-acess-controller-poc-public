@@ -375,7 +375,7 @@ The frontend is built with React and Vite. [frontend/src/App.jsx](https://github
 11. Terminal
 12. Firmware Update
 
-The panel now starts with a login screen and two seeded web accounts. `admin / osdp` has full control of the system, while `demo / db2` is restricted to a read-only activity view intended for course demonstration and teacher access. This also shows that the database is part of a working management interface rather than a standalone schema.
+The panel now starts with a login screen and two seeded web accounts. `admin / osdp` has full control of the system, while `demo / db2` is restricted to a read-only activity view intended for course demonstration and teacher access. For better operational hygiene, the frontend no longer exposes preset buttons or inline default credentials, and the admin Users page can now either rotate a panel password or reset a seeded account back to its default. This also shows that the database is part of a working management interface rather than a standalone schema.
 
 # 6. MongoDB Database Design
 
@@ -412,7 +412,7 @@ Stores each person or operator in the system. Important fields include username,
 
 ### `panel_users`
 
-Stores the web-panel login accounts separately from access-control identities. This collection currently seeds two fixed operator accounts: `admin` with role `admin`, and `demo` with role `viewer`. Keeping this collection separate avoids mixing UI operators with cardholders, PIN users, and access schedules.
+Stores the web-panel login accounts separately from access-control identities. This collection currently seeds two fixed operator accounts: `admin` with role `admin`, and `demo` with role `viewer`. Keeping this collection separate avoids mixing UI operators with cardholders, PIN users, and access schedules. The application now lets an admin either change one of these panel passwords directly or reset a seeded panel account back to its repository default without recreating the document.
 
 ### `credentials`
 
@@ -574,7 +574,7 @@ The application currently enforces the following important rules:
 
 Although the main application uses Python and PyMongo, the same database model is also expressed directly in native MongoDB shell syntax through [scripts/osdp_access_mongo.js](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/scripts/osdp_access_mongo.js). From a database-course perspective, this shows that the schema and business-oriented data operations are not tied to one application framework. The core model can also be presented directly through `mongosh` methods such as `createCollection()`, `createIndex()`, `insertOne()`, `findOne()`, `updateOne()`, `deleteOne()`, and `deleteMany()`.
 
-This shell implementation follows the same collection structure described above: `users`, `panel_users`, `credentials`, `events`, `access_log`, `readers`, `schedules`, and `system_logs`. It also seeds the same default schedules, adds the same fixed `admin` and `demo` panel accounts, applies the same lookup rules for cards and PINs, and keeps the same distinction between current reader state and append-only operational logs. In other words, the Mongo shell version is not a separate design; it is a direct representation of the same database model in Mongo-native syntax.
+This shell implementation follows the same collection structure described above: `users`, `panel_users`, `credentials`, `events`, `access_log`, `readers`, `schedules`, and `system_logs`. It also seeds the same default schedules, adds the same fixed `admin` and `demo` panel accounts, includes reset helpers for restoring seeded panel passwords, applies the same lookup rules for cards and PINs, and keeps the same distinction between current reader state and append-only operational logs. In other words, the Mongo shell version is not a separate design; it is a direct representation of the same database model in Mongo-native syntax.
 
 For demonstration purposes, the project also includes [scripts/osdp_access_mongo_demo.js](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/scripts/osdp_access_mongo_demo.js), which runs the helper library against a separate database named `osdp_access_demo`. That allows the project to demonstrate schema creation, CRUD operations, schedule checks, event logging, access evaluation, and audit-log generation without modifying the live application database. The full explanation and the full captured run output are included directly in Appendix E and Appendix F of this report, based on [docs/MONGO_SCRIPT_WALKTHROUGH.md](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/docs/MONGO_SCRIPT_WALKTHROUGH.md) and [docs/MONGO_SCRIPT_DEMO_OUTPUT.txt](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/docs/MONGO_SCRIPT_DEMO_OUTPUT.txt).
 
@@ -643,6 +643,8 @@ After the backend starts, the web panel now requires login. The two seeded accou
 
 1. `admin / osdp` for full control,
 2. `demo / db2` for a read-only viewer session intended for demonstrations.
+
+For better security, the frontend does not reveal those defaults on the login screen anymore. If the passwords were rotated earlier, an admin can restore them either from the Users page or through the Mongo shell helpers before a demonstration.
 
 For temporary off-site access, the repository also includes [share-ngrok.ps1](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/share-ngrok.ps1), which starts `ngrok http 5000` and prints a public HTTPS URL for the local panel. That makes it possible to demonstrate the dashboard and live logs safely through the `demo` account without exposing write operations.
 
@@ -1184,6 +1186,16 @@ This appendix maps each helper function from [scripts/osdp_access_mongo.js](http
 | `ensureCollections` | `getCollectionNames()`, `createCollection()` | Create missing collections |
 | `ensureIndexes` | `createIndex()` | Create uniqueness and lookup indexes |
 | `seedSchedules` | `updateOne()` with `$setOnInsert` and `upsert: true` | Seed default schedule documents |
+| `seedPanelUsers` | `findOne()`, `insertOne()`, `updateOne()` with `$set` | Seed or repair fixed panel login accounts |
+
+## Panel User Helpers
+
+| Helper Function | MongoDB Shell Operators / Methods Demonstrated | Purpose |
+| --- | --- | --- |
+| `listPanelUsers` | `find()`, `sort()`, `toArray()` | Read panel login accounts in username order |
+| `getPanelUserByUsername` | `findOne()` | Read one panel login account by unique username |
+| `resetPanelUserPassword` | `updateOne()` with `$set` | Restore one seeded panel login account to its default password hash |
+| `resetAllPanelUserPasswords` | repeated `updateOne()` with `$set` | Restore every seeded panel login account to its default password hash |
 
 ## User Helpers
 

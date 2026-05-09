@@ -38,6 +38,7 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
       username: 'admin',
       role: 'admin',
       display_name: 'OSDP Administrator',
+      default_password: 'osdp',
       password_hash: 'scrypt:32768:8:1$il0dUn4F7AkWapaL$cee1e40fd6b8841cbc6734c75b995df26e7bbf57988b0d5c9dd3de74a6d4a0a0f8da27b725a4d9d0763bdb11b8e322321264998918201f29740aa29e707407ba',
       active: true,
     },
@@ -45,10 +46,15 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
       username: 'demo',
       role: 'viewer',
       display_name: 'DB2 Demo Viewer',
+      default_password: 'db2',
       password_hash: 'scrypt:32768:8:1$tFtKHzA0Mnuw3fFr$3beaabd087bceff6fa1707e8990b5ed254fff9300980bc7df8e5d37b64628d4ff6f77e1f95ce96850f883c3003576bce4b9cb0a6f40070daa14ae0792bfcaae6',
       active: true,
     },
   ];
+
+  const PANEL_USER_SEED_MAP = Object.fromEntries(
+    PANEL_USER_SEEDS.map((panelUser) => [panelUser.username, panelUser])
+  );
 
   // These are the collections used by the access controller application.
   const COLLECTIONS = [
@@ -171,16 +177,33 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
   // Seed the fixed web-panel accounts used by the Flask login flow.
   function seedPanelUsers() {
     for (const panelUser of PANEL_USER_SEEDS) {
-      dbHandle.panel_users.updateOne(
+      const existing = dbHandle.panel_users.findOne(
         { username: panelUser.username },
-        {
-          $setOnInsert: {
-            ...panelUser,
-            created: nowUtc(),
-          },
-        },
-        { upsert: true }
+        { projection: { password_hash: 1 } }
       );
+      if (existing) {
+        if (!existing.password_hash) {
+          dbHandle.panel_users.updateOne(
+            { username: panelUser.username },
+            {
+              $set: {
+                password_hash: panelUser.password_hash,
+                updated: nowUtc(),
+              },
+            }
+          );
+        }
+        continue;
+      }
+
+      dbHandle.panel_users.insertOne({
+        username: panelUser.username,
+        role: panelUser.role,
+        display_name: panelUser.display_name,
+        password_hash: panelUser.password_hash,
+        active: panelUser.active,
+        created: nowUtc(),
+      });
     }
     return listPanelUsers();
   }
@@ -222,6 +245,8 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     print('Panel users:');
     print('  osdpAccess.listPanelUsers({ activeOnly: true|false })');
     print('  osdpAccess.getPanelUserByUsername(username)');
+    print('  osdpAccess.resetPanelUserPassword(username)');
+    print('  osdpAccess.resetAllPanelUserPasswords()');
     print('Users:');
     print('  osdpAccess.createUser({...})');
     print('  osdpAccess.listUsers({ activeOnly: true|false })');
@@ -279,6 +304,31 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
   // Read a single panel user by unique username.
   function getPanelUserByUsername(username) {
     return dbHandle.panel_users.findOne({ username });
+  }
+
+  // Reset a seeded panel account back to its default password hash.
+  function resetPanelUserPassword(username) {
+    const seed = PANEL_USER_SEED_MAP[username];
+    if (!seed) {
+      throw new Error(`No default password is configured for panel user: ${username}`);
+    }
+    return dbHandle.panel_users.updateOne(
+      { username },
+      {
+        $set: {
+          password_hash: seed.password_hash,
+          updated: nowUtc(),
+        },
+      }
+    );
+  }
+
+  // Reset every seeded panel account to its repository default hash.
+  function resetAllPanelUserPasswords() {
+    return PANEL_USER_SEEDS.map((panelUser) => ({
+      username: panelUser.username,
+      result: resetPanelUserPassword(panelUser.username),
+    }));
   }
 
   // Create a user document with the same shape as the backend application.
@@ -721,6 +771,8 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     seedPanelUsers,
     listPanelUsers,
     getPanelUserByUsername,
+    resetPanelUserPassword,
+    resetAllPanelUserPasswords,
     createUser,
     listUsers,
     getUserById,
