@@ -964,7 +964,6 @@ def cmd_debug():
 @socketio.on("connect")
 def ws_connect():
     if _current_panel_user() is None:
-        disconnect()
         return False
     emit("bridge_status", {
         "connected": bridge.connected,
