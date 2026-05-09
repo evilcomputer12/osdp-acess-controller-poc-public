@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760">
+  <defs>
+    <style>
+      .title { font: 700 30px Arial, sans-serif; fill: #1a202c; }
+      .subtitle { font: 600 19px Arial, sans-serif; fill: #1a202c; }
+      .small { font: 400 15px Arial, sans-serif; fill: #2d3748; }
+      .label { font: 500 16px Arial, sans-serif; fill: #1a202c; }
+      .box { rx: 18; ry: 18; stroke: #1a202c; stroke-width: 2; }
+      .wire { stroke: #1a202c; stroke-width: 3; fill: none; }
+    </style>
+  </defs>
+  <rect width="1280" height="760" fill="#f7fafc" />
+  <text x="50" y="55" class="title">Prototype Hardware Stack and Power Flow</text>
+
+  <rect x="60" y="110" width="1160" height="560" class="box" fill="#fffaf0"/>
+  <text x="640" y="145" text-anchor="middle" class="subtitle">Metal enclosure / breadboard-style prototype build</text>
+
+  <rect x="110" y="220" width="220" height="130" class="box" fill="#feebc8"/>
+  <text x="220" y="260" text-anchor="middle" class="subtitle">12V Input / Bench Supply</text>
+  <text x="220" y="288" text-anchor="middle" class="small">field-style power source</text>
+  <text x="220" y="312" text-anchor="middle" class="small">feeds relay and buck stage</text>
+
+  <rect x="420" y="220" width="220" height="130" class="box" fill="#bee3f8"/>
+  <text x="530" y="260" text-anchor="middle" class="subtitle">Buck Converter</text>
+  <text x="530" y="288" text-anchor="middle" class="small">12V → 5V conversion</text>
+  <text x="530" y="312" text-anchor="middle" class="small">stable rail for Pi / logic</text>
+
+  <rect x="760" y="190" width="240" height="170" class="box" fill="#c6f6d5"/>
+  <text x="880" y="230" text-anchor="middle" class="subtitle">Raspberry Pi 3B</text>
+  <text x="880" y="258" text-anchor="middle" class="small">runs MongoDB + Flask + React bundle</text>
+  <text x="880" y="282" text-anchor="middle" class="small">USB host and web server</text>
+  <text x="880" y="306" text-anchor="middle" class="small">operator interface brain</text>
+
+  <rect x="170" y="430" width="240" height="150" class="box" fill="#fed7d7"/>
+  <text x="290" y="470" text-anchor="middle" class="subtitle">STM32 Blue Pill</text>
+  <text x="290" y="498" text-anchor="middle" class="small">bridge firmware</text>
+  <text x="290" y="522" text-anchor="middle" class="small">USB CDC + UART/OSDP timing</text>
+  <text x="290" y="546" text-anchor="middle" class="small">command translation layer</text>
+
+  <rect x="500" y="430" width="220" height="150" class="box" fill="#faf089"/>
+  <text x="610" y="470" text-anchor="middle" class="subtitle">MAX485 / RS-485</text>
+  <text x="610" y="498" text-anchor="middle" class="small">differential transceiver</text>
+  <text x="610" y="522" text-anchor="middle" class="small">A/B field bus interface</text>
+
+  <rect x="820" y="430" width="230" height="150" class="box" fill="#e9d8fd"/>
+  <text x="935" y="470" text-anchor="middle" class="subtitle">Relay Driver Stage</text>
+  <text x="935" y="498" text-anchor="middle" class="small">BC548 + diode + relay</text>
+  <text x="935" y="522" text-anchor="middle" class="small">safe switching of lock/test load</text>
+
+  <rect x="1060" y="240" width="120" height="90" class="box" fill="#b2f5ea"/>
+  <text x="1120" y="278" text-anchor="middle" class="subtitle">USB</text>
+  <text x="1120" y="304" text-anchor="middle" class="small">debug + power</text>
+
+  <line x1="330" y1="285" x2="420" y2="285" class="wire"/>
+  <text x="375" y="268" text-anchor="middle" class="label">12V</text>
+  <line x1="640" y1="285" x2="760" y2="285" class="wire"/>
+  <text x="700" y="268" text-anchor="middle" class="label">5V</text>
+  <line x1="880" y1="360" x2="880" y2="430" class="wire"/>
+  <text x="900" y="398" class="label">USB / power rail</text>
+  <line x1="410" y1="505" x2="500" y2="505" class="wire"/>
+  <text x="455" y="488" text-anchor="middle" class="label">UART</text>
+  <line x1="720" y1="505" x2="820" y2="505" class="wire"/>
+  <text x="770" y="488" text-anchor="middle" class="label">control / I/O</text>
+
+  <text x="110" y="705" class="small">Build story: this project was not only a database exercise. It was physically assembled as a working prototype with wiring, soldering, enclosure work, and live debugging while the MongoDB data model and software stack were being developed in parallel.</text>
+</svg>

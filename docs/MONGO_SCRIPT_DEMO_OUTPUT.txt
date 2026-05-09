@@ -1,0 +1,853 @@
+﻿Loaded osdpAccess Mongo helpers. Run osdpAccess.help() for usage.
+
+=== 1. Reset and initialize demo database ===
+-- resetDatabase({ dropDatabase: true })
+{
+  "db": "osdp_access_demo",
+  "collections": [
+    "access_log",
+    "credentials",
+    "events",
+    "readers",
+    "schedules",
+    "system_logs",
+    "users"
+  ],
+  "counts": {
+    "users": 0,
+    "credentials": 0,
+    "events": 0,
+    "access_log": 0,
+    "readers": 0,
+    "schedules": 2,
+    "system_logs": 0
+  }
+}
+
+=== 2. Create users ===
+-- users after create
+[
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "username": "martin",
+    "full_name": "Martin Velichkovski",
+    "role": "admin",
+    "active": true,
+    "allowed_readers": [
+      0
+    ],
+    "schedule": "24/7",
+    "created": {
+      "$date": "2026-05-09T00:45:55.531Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2909"
+    },
+    "username": "temp-delete",
+    "full_name": "Temporary Demo User",
+    "role": "user",
+    "active": true,
+    "allowed_readers": [],
+    "schedule": "24/7",
+    "created": {
+      "$date": "2026-05-09T00:45:55.533Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2908"
+    },
+    "username": "visitor",
+    "full_name": "Weekend Visitor",
+    "role": "user",
+    "active": true,
+    "allowed_readers": [
+      1
+    ],
+    "schedule": "Weekdays 8-18",
+    "created": {
+      "$date": "2026-05-09T00:45:55.532Z"
+    }
+  }
+]
+
+=== 3. Read and update users ===
+-- getUserByUsername("martin")
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c2907"
+  },
+  "username": "martin",
+  "full_name": "Martin Velichkovski",
+  "role": "admin",
+  "active": true,
+  "allowed_readers": [
+    0
+  ],
+  "schedule": "24/7",
+  "created": {
+    "$date": "2026-05-09T00:45:55.531Z"
+  }
+}
+-- updateUser(martin)
+{
+  "acknowledged": true,
+  "insertedId": null,
+  "matchedCount": 1,
+  "modifiedCount": 1,
+  "upsertedCount": 0
+}
+-- getUserById(martinId)
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c2907"
+  },
+  "username": "martin",
+  "full_name": "Martin V.",
+  "role": "admin",
+  "active": true,
+  "allowed_readers": [
+    0,
+    2
+  ],
+  "schedule": "24/7",
+  "created": {
+    "$date": "2026-05-09T00:45:55.531Z"
+  }
+}
+-- deactivateUser(tempUserId)
+{
+  "acknowledged": true,
+  "insertedId": null,
+  "matchedCount": 1,
+  "modifiedCount": 1,
+  "upsertedCount": 0
+}
+-- temp user after deactivate
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c2909"
+  },
+  "username": "temp-delete",
+  "full_name": "Temporary Demo User",
+  "role": "user",
+  "active": false,
+  "allowed_readers": [],
+  "schedule": "24/7",
+  "created": {
+    "$date": "2026-05-09T00:45:55.533Z"
+  }
+}
+
+=== 4. Create, read, update, revoke, and delete credentials ===
+-- listCredentials()
+[
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290d"
+    },
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2909"
+    },
+    "type": "card",
+    "card_hex": "0BADF00D",
+    "card_dec": "195948557",
+    "bits": 32,
+    "format": 1,
+    "reader": 3,
+    "enrolled": {
+      "$date": "2026-05-09T00:45:55.545Z"
+    },
+    "active": true
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290b"
+    },
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "type": "pin",
+    "pin_hex": "1A2B",
+    "reader": 0,
+    "enrolled": {
+      "$date": "2026-05-09T00:45:55.544Z"
+    },
+    "active": true
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290c"
+    },
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2908"
+    },
+    "type": "pin",
+    "pin_hex": "BEEF",
+    "reader": 1,
+    "enrolled": {
+      "$date": "2026-05-09T00:45:55.544Z"
+    },
+    "active": true
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290a"
+    },
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "type": "card",
+    "card_hex": "04A1B2C3D4",
+    "card_dec": "19892716500",
+    "bits": 34,
+    "format": 0,
+    "reader": 0,
+    "enrolled": {
+      "$date": "2026-05-09T00:45:55.543Z"
+    },
+    "active": true
+  }
+]
+-- findCredentialByCard("04A1B2C3D4")
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c290a"
+  },
+  "user_id": {
+    "$oid": "69fe83c33d739553f17c2907"
+  },
+  "type": "card",
+  "card_hex": "04A1B2C3D4",
+  "card_dec": "19892716500",
+  "bits": 34,
+  "format": 0,
+  "reader": 0,
+  "enrolled": {
+    "$date": "2026-05-09T00:45:55.543Z"
+  },
+  "active": true
+}
+-- updateCredential(martinCardId)
+{
+  "acknowledged": true,
+  "insertedId": null,
+  "matchedCount": 1,
+  "modifiedCount": 1,
+  "upsertedCount": 0
+}
+-- getCredentialById(martinCardId)
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c290a"
+  },
+  "user_id": {
+    "$oid": "69fe83c33d739553f17c2907"
+  },
+  "type": "card",
+  "card_hex": "04A1B2C3D4",
+  "card_dec": "19892716500",
+  "bits": 37,
+  "format": 0,
+  "reader": 2,
+  "enrolled": {
+    "$date": "2026-05-09T00:45:55.543Z"
+  },
+  "active": true
+}
+-- revokeCredential(tempCredentialId)
+{
+  "acknowledged": true,
+  "insertedId": null,
+  "matchedCount": 1,
+  "modifiedCount": 1,
+  "upsertedCount": 0
+}
+-- temp credential after revoke
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c290d"
+  },
+  "user_id": {
+    "$oid": "69fe83c33d739553f17c2909"
+  },
+  "type": "card",
+  "card_hex": "0BADF00D",
+  "card_dec": "195948557",
+  "bits": 32,
+  "format": 1,
+  "reader": 3,
+  "enrolled": {
+    "$date": "2026-05-09T00:45:55.545Z"
+  },
+  "active": false
+}
+-- deleteCredential(tempCredentialId)
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+
+=== 5. Create, read, update, delete schedules ===
+-- listSchedules()
+[
+  {
+    "_id": {
+      "$oid": "69fe83c3cb35dbf571b92f28"
+    },
+    "name": "24/7",
+    "periods": [
+      {
+        "days": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "00:00",
+        "end": "23:59"
+      }
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290f"
+    },
+    "name": "Delete Me Schedule",
+    "periods": [
+      {
+        "days": [
+          0
+        ],
+        "start": "00:00",
+        "end": "00:30"
+      }
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c3cb35dbf571b92f29"
+    },
+    "name": "Weekdays 8-18",
+    "periods": [
+      {
+        "days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "start": "08:00",
+        "end": "18:00"
+      }
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290e"
+    },
+    "name": "Weekend Lab",
+    "periods": [
+      {
+        "days": [
+          5
+        ],
+        "start": "10:00",
+        "end": "14:00"
+      },
+      {
+        "days": [
+          6
+        ],
+        "start": "11:00",
+        "end": "13:00"
+      }
+    ]
+  }
+]
+-- getSchedule("Weekend Lab")
+{
+  "_id": {
+    "$oid": "69fe83c33d739553f17c290e"
+  },
+  "name": "Weekend Lab",
+  "periods": [
+    {
+      "days": [
+        5
+      ],
+      "start": "10:00",
+      "end": "14:00"
+    },
+    {
+      "days": [
+        6
+      ],
+      "start": "11:00",
+      "end": "13:00"
+    }
+  ]
+}
+-- updateSchedule(weekendLabId)
+{
+  "acknowledged": true,
+  "insertedId": null,
+  "matchedCount": 1,
+  "modifiedCount": 1,
+  "upsertedCount": 0
+}
+-- checkSchedule("Weekdays 8-18", mondayMorning)
+{
+  "schedule": "Weekdays 8-18",
+  "when": {
+    "$date": "2026-05-11T09:15:00Z"
+  },
+  "allowed": true
+}
+-- checkSchedule("Weekdays 8-18", saturdayNight)
+{
+  "schedule": "Weekdays 8-18",
+  "when": {
+    "$date": "2026-05-09T22:00:00Z"
+  },
+  "allowed": false
+}
+-- deleteSchedule(deleteMeScheduleId)
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+
+=== 6. Upsert, read, list, and delete readers ===
+-- upsertReader(0, ...)
+{
+  "acknowledged": true,
+  "insertedId": {
+    "$oid": "69fe83c3cb35dbf571b92f2a"
+  },
+  "matchedCount": 0,
+  "modifiedCount": 0,
+  "upsertedCount": 1
+}
+-- upsertReader(1, ...)
+{
+  "acknowledged": true,
+  "insertedId": {
+    "$oid": "69fe83c3cb35dbf571b92f2b"
+  },
+  "matchedCount": 0,
+  "modifiedCount": 0,
+  "upsertedCount": 1
+}
+-- getReader(0)
+{
+  "_id": {
+    "$oid": "69fe83c3cb35dbf571b92f2a"
+  },
+  "index": 0,
+  "addr": 0,
+  "firmware": "2.83.0",
+  "last_seen": {
+    "$date": "2026-05-11T09:15:00Z"
+  },
+  "model": 1,
+  "power": 0,
+  "sc": 1,
+  "serial": "21AA0145",
+  "state": "ONLINE",
+  "tamper": 0,
+  "vendor": "E41E0A"
+}
+-- listReaders()
+[
+  {
+    "_id": {
+      "$oid": "69fe83c3cb35dbf571b92f2a"
+    },
+    "index": 0,
+    "addr": 0,
+    "firmware": "2.83.0",
+    "last_seen": {
+      "$date": "2026-05-11T09:15:00Z"
+    },
+    "model": 1,
+    "power": 0,
+    "sc": 1,
+    "serial": "21AA0145",
+    "state": "ONLINE",
+    "tamper": 0,
+    "vendor": "E41E0A"
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c3cb35dbf571b92f2b"
+    },
+    "index": 1,
+    "addr": 1,
+    "firmware": "1.0.0",
+    "last_seen": {
+      "$date": "2026-05-09T22:00:00Z"
+    },
+    "model": 2,
+    "power": 0,
+    "sc": 0,
+    "serial": "DEMO0001",
+    "state": "OFFLINE",
+    "tamper": 0,
+    "vendor": "DEMO01"
+  }
+]
+-- deleteReader(1)
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+
+=== 7. Log, query, and delete events ===
+-- getEvents({ limit: 10 })
+[
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2910"
+    },
+    "type": "card",
+    "reader": 0,
+    "hex": "04A1B2C3D4",
+    "bits": 37,
+    "format": 0,
+    "ts": {
+      "$date": "2026-05-11T09:15:00Z"
+    },
+    "raw": "!CARD demo",
+    "logged": {
+      "$date": "2026-05-09T00:45:55.567Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2911"
+    },
+    "type": "pd_status",
+    "reader": 0,
+    "state": "ONLINE",
+    "ts": {
+      "$date": "2026-05-11T09:15:00Z"
+    },
+    "raw": "!PD 0 ONLINE",
+    "logged": {
+      "$date": "2026-05-09T00:45:55.568Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2912"
+    },
+    "type": "demo_delete",
+    "reader": 9,
+    "ts": {
+      "$date": "2026-05-09T22:00:00Z"
+    },
+    "raw": "!DEMO DELETE",
+    "logged": {
+      "$date": "2026-05-09T00:45:55.569Z"
+    }
+  }
+]
+-- deleteEvents({ type: "demo_delete" })
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+
+=== 8. Log, query, and delete system logs ===
+-- getSystemLogs({ limit: 10 })
+[
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2914"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.573Z"
+    },
+    "level": "warn",
+    "source": "demo",
+    "message": "Reader 1 was removed during cleanup"
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2915"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.573Z"
+    },
+    "level": "info",
+    "source": "demo-cleanup",
+    "message": "This log will be deleted"
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2913"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.572Z"
+    },
+    "level": "info",
+    "source": "demo",
+    "message": "Demo script started",
+    "data": {
+      "step": 8
+    }
+  }
+]
+-- deleteSystemLogs({ source: "demo-cleanup" })
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+
+=== 9. Access evaluation helpers ===
+-- evaluateUserAccess(martin, reader 0, mondayMorning)
+{
+  "granted": true,
+  "reason": "allowed"
+}
+-- evaluateUserAccess(visitor, reader 0, mondayMorning)
+{
+  "granted": false,
+  "reason": "reader not allowed"
+}
+-- evaluateUserAccess(visitor, reader 1, saturdayNight)
+{
+  "granted": false,
+  "reason": "outside schedule"
+}
+
+=== 10. Access workflows and access log ===
+-- accessByCard(martin card)
+{
+  "granted": true,
+  "reason": "allowed",
+  "credential": {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290a"
+    },
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "type": "card",
+    "card_hex": "04A1B2C3D4",
+    "card_dec": "19892716500",
+    "bits": 37,
+    "format": 0,
+    "reader": 2,
+    "enrolled": {
+      "$date": "2026-05-09T00:45:55.543Z"
+    },
+    "active": true
+  },
+  "user": {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "username": "martin",
+    "full_name": "Martin V.",
+    "role": "admin",
+    "active": true,
+    "allowed_readers": [
+      0,
+      2
+    ],
+    "schedule": "24/7",
+    "created": {
+      "$date": "2026-05-09T00:45:55.531Z"
+    }
+  }
+}
+-- accessByCard(unknown card)
+{
+  "granted": false,
+  "reason": "unknown card",
+  "credential": null,
+  "user": null
+}
+-- accessByPin(visitor pin outside schedule)
+{
+  "granted": false,
+  "reason": "outside schedule",
+  "credential": {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c290c"
+    },
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2908"
+    },
+    "type": "pin",
+    "pin_hex": "BEEF",
+    "reader": 1,
+    "enrolled": {
+      "$date": "2026-05-09T00:45:55.544Z"
+    },
+    "active": true
+  },
+  "user": {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2908"
+    },
+    "username": "visitor",
+    "full_name": "Weekend Visitor",
+    "role": "user",
+    "active": true,
+    "allowed_readers": [
+      1
+    ],
+    "schedule": "Weekdays 8-18",
+    "created": {
+      "$date": "2026-05-09T00:45:55.532Z"
+    }
+  }
+}
+-- getAccessLog({ limit: 10 })
+[
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2919"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.587Z"
+    },
+    "card_hex": "DEADBEEF",
+    "pin_hex": null,
+    "user_id": null,
+    "username": null,
+    "granted": false,
+    "reader": 99,
+    "reason": "manual demo delete"
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2918"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.586Z"
+    },
+    "card_hex": null,
+    "pin_hex": "BEEF",
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2908"
+    },
+    "username": "visitor",
+    "granted": false,
+    "reader": 1,
+    "reason": "outside schedule"
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2917"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.583Z"
+    },
+    "card_hex": "FFFFFFFF",
+    "pin_hex": null,
+    "user_id": null,
+    "username": null,
+    "granted": false,
+    "reader": 0,
+    "reason": "unknown card"
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2916"
+    },
+    "ts": {
+      "$date": "2026-05-09T00:45:55.582Z"
+    },
+    "card_hex": "04A1B2C3D4",
+    "pin_hex": null,
+    "user_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "username": "martin",
+    "granted": true,
+    "reader": 0,
+    "reason": "allowed"
+  }
+]
+-- deleteAccessLog({ reason: "manual demo delete" })
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+
+=== 11. Delete temporary user and final summary ===
+-- deleteUser(tempUserId)
+{
+  "acknowledged": true,
+  "deletedCount": 1
+}
+-- listUsers({ activeOnly: false })
+[
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2907"
+    },
+    "username": "martin",
+    "full_name": "Martin V.",
+    "role": "admin",
+    "active": true,
+    "allowed_readers": [
+      0,
+      2
+    ],
+    "schedule": "24/7",
+    "created": {
+      "$date": "2026-05-09T00:45:55.531Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69fe83c33d739553f17c2908"
+    },
+    "username": "visitor",
+    "full_name": "Weekend Visitor",
+    "role": "user",
+    "active": true,
+    "allowed_readers": [
+      1
+    ],
+    "schedule": "Weekdays 8-18",
+    "created": {
+      "$date": "2026-05-09T00:45:55.532Z"
+    }
+  }
+]
+-- final summary
+{
+  "db": "osdp_access_demo",
+  "collections": [
+    "access_log",
+    "credentials",
+    "events",
+    "readers",
+    "schedules",
+    "system_logs",
+    "users"
+  ],
+  "counts": {
+    "users": 2,
+    "credentials": 3,
+    "events": 2,
+    "access_log": 3,
+    "readers": 1,
+    "schedules": 3,
+    "system_logs": 2
+  }
+}

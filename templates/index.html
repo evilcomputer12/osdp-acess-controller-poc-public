@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSDP Access Control Panel</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+:root{--accent:#0d6efd;--success:#198754;--danger:#dc3545;--warning:#ffc107}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0b0f19;color:#c9d1d9}
+.sidebar{background:#161b22;border-right:1px solid #21262d;width:240px;min-height:100vh;position:fixed;top:0;left:0;z-index:100;transition:transform .3s}
+.sidebar .nav-link{color:#8b949e;padding:.65rem 1.25rem;font-size:.875rem;border-radius:0}
+.sidebar .nav-link:hover,.sidebar .nav-link.active{color:#f0f6fc;background:#1c2333}
+.sidebar .nav-link i{width:22px;text-align:center;margin-right:8px}
+.main-content{margin-left:240px;padding:1.5rem}
+.top-bar{background:#161b22;border-bottom:1px solid #21262d;padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:-1.5rem -1.5rem 1.5rem;position:sticky;top:0;z-index:50}
+.led{width:10px;height:10px;border-radius:50%;display:inline-block;transition:box-shadow .15s,background .15s}
+.led-tx{background:#333}.led-tx.on{background:#0f0;box-shadow:0 0 8px #0f0}
+.led-rx{background:#333}.led-rx.on{background:#f80;box-shadow:0 0 8px #f80}
+.led-conn{background:#555}.led-conn.on{background:#0f0;box-shadow:0 0 6px #0f0}
+.stat-card{background:#161b22;border:1px solid #21262d;border-radius:.75rem;padding:1.25rem}
+.stat-card h6{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin-bottom:.35rem}
+.stat-card .value{font-size:1.75rem;font-weight:700}
+.event-feed{max-height:420px;overflow-y:auto;font-family:'Cascadia Code','Fira Code',monospace;font-size:.8rem}
+.event-feed .ev-row{padding:.3rem .6rem;border-bottom:1px solid #21262d}
+.event-feed .ev-row:hover{background:#1c2333}
+.reader-card{background:#161b22;border:1px solid #21262d;border-radius:.75rem;padding:1rem;margin-bottom:1rem}
+.modal-content{background:#161b22;border:1px solid #21262d}
+#accessToast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;min-width:320px}
+.access-granted{animation:flashGreen .6s}
+.access-denied{animation:flashRed .6s}
+@keyframes flashGreen{0%,100%{background:transparent}50%{background:rgba(25,135,84,.25)}}
+@keyframes flashRed{0%,100%{background:transparent}50%{background:rgba(220,53,69,.25)}}
+.pulse-warn{animation:pulseWarn 1.5s infinite}
+@keyframes pulseWarn{0%,100%{opacity:1}50%{opacity:.4}}
+@media(max-width:991px){.sidebar{transform:translateX(-100%)}.sidebar.show{transform:translateX(0)}.main-content{margin-left:0}}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="p-3 border-bottom border-secondary">
+    <h5 class="mb-0"><i class="bi bi-shield-lock-fill text-primary"></i> OSDP Panel</h5>
+    <small class="text-muted">Access Control System</small>
+  </div>
+  <ul class="nav flex-column mt-2">
+    <li><a class="nav-link active" href="#" data-page="dashboard"><i class="bi bi-speedometer2"></i>Dashboard</a></li>
+    <li><a class="nav-link" href="#" data-page="readers"><i class="bi bi-cpu"></i>Readers</a></li>
+    <li><a class="nav-link" href="#" data-page="users"><i class="bi bi-people"></i>Users</a></li>
+    <li><a class="nav-link" href="#" data-page="enrollment"><i class="bi bi-person-badge"></i>Enrollment</a></li>
+    <li><a class="nav-link" href="#" data-page="schedules"><i class="bi bi-clock-history"></i>Schedules</a></li>
+    <li><a class="nav-link" href="#" data-page="events"><i class="bi bi-journal-text"></i>Events</a></li>
+    <li><a class="nav-link" href="#" data-page="access-log"><i class="bi bi-door-open"></i>Access Log</a></li>
+    <li><a class="nav-link" href="#" data-page="config"><i class="bi bi-gear"></i>Reader Config</a></li>
+    <li><a class="nav-link" href="#" data-page="comms"><i class="bi bi-broadcast-pin"></i>Comms Monitor</a></li>
+    <li><a class="nav-link" href="#" data-page="system-logs"><i class="bi bi-file-earmark-text"></i>System Logs</a></li>
+    <li><a class="nav-link" href="#" data-page="terminal"><i class="bi bi-terminal"></i>Terminal</a></li>
+  </ul>
+</nav>
+
+<!-- Main -->
+<div class="main-content">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <button class="btn btn-sm btn-outline-secondary d-lg-none" onclick="document.getElementById('sidebar').classList.toggle('show')">
+      <i class="bi bi-list"></i>
+    </button>
+    <span class="led led-conn" id="ledConn" title="Bridge connected"></span>
+    <span class="text-muted small" id="connLabel">Disconnected</span>
+    <button class="btn btn-sm btn-outline-success" id="btnConnect" onclick="toggleConnect()">Connect</button>
+    <span class="ms-3 small text-muted">TX</span><span class="led led-tx" id="ledTx"></span>
+    <span class="small text-muted">RX</span><span class="led led-rx" id="ledRx"></span>
+    <span class="ms-2 small text-muted" id="txrxCounts">TX:0 RX:0</span>
+    <span class="ms-auto small text-muted" id="portLabel"></span>
+  </div>
+
+  <!-- Pages -->
+  <div id="pages">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="page" id="page-dashboard">
+      <h4 class="mb-3">Dashboard</h4>
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>Readers</h6><div class="value" id="statReaders">0</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>Users</h6><div class="value" id="statUsers">0</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>MCU TX</h6><div class="value" id="statTx">0</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>MCU RX</h6><div class="value" id="statRx">0</div></div></div>
+      </div>
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>Uptime</h6><div class="value" id="statUptime">—</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>Door 0</h6><div class="value" id="statDoor0">—</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>Door 1</h6><div class="value" id="statDoor1">—</div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><h6>Sensor</h6><div class="value" id="statSensor">—</div></div></div>
+      </div>
+      <div id="readerCardsRow" class="row g-3 mb-4"></div>
+      <h5>Live Event Feed</h5>
+      <div class="event-feed border rounded" id="eventFeed"></div>
+    </div>
+
+    <!-- ═══ READERS ═══ -->
+    <div class="page d-none" id="page-readers">
+      <h4 class="mb-3">Readers</h4>
+      <div class="mb-3">
+        <button class="btn btn-sm btn-primary" onclick="api('/api/cmd/status','POST')"><i class="bi bi-arrow-repeat"></i> Refresh Status</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="promptAddReader()"><i class="bi bi-plus-lg"></i> Add Reader</button>
+      </div>
+      <div id="readersList"></div>
+    </div>
+
+    <!-- ═══ USERS ═══ -->
+    <div class="page d-none" id="page-users">
+      <h4 class="mb-3">Users &amp; Access Rights</h4>
+      <button class="btn btn-sm btn-primary mb-3" onclick="showCreateUser()"><i class="bi bi-person-plus"></i> New User</button>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover" id="usersTable">
+          <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Schedule</th><th>Readers</th><th>Cards</th><th>PINs</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ENROLLMENT ═══ -->
+    <div class="page d-none" id="page-enrollment">
+      <h4 class="mb-3">Card &amp; PIN Enrollment</h4>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h5><i class="bi bi-credit-card-2-front"></i> Card Enrollment</h5>
+            <div class="mb-2"><label class="form-label small">Select User</label>
+              <select class="form-select form-select-sm" id="enrollCardUser"></select></div>
+            <button class="btn btn-warning btn-sm" onclick="startEnroll('card')" id="btnEnrollCard"><i class="bi bi-broadcast"></i> Scan Next Card</button>
+            <button class="btn btn-outline-secondary btn-sm ms-1" onclick="cancelEnroll('card')">Cancel</button>
+            <span class="ms-2 small text-muted" id="enrollCardStatus"></span>
+            <hr>
+            <h6>Manual Card Entry</h6>
+            <div class="input-group input-group-sm mb-2">
+              <span class="input-group-text">HEX</span>
+              <input type="text" class="form-control" id="manualCardHex" placeholder="e.g. 0A1B2C3D">
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><input type="number" class="form-control form-control-sm" id="manualCardBits" placeholder="Bits" value="26"></div>
+              <div class="col"><input type="number" class="form-control form-control-sm" id="manualCardFmt" placeholder="Format" value="1"></div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="manualEnrollCard()">Enroll Card</button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h5><i class="bi bi-dial"></i> PIN Enrollment</h5>
+            <div class="mb-2"><label class="form-label small">Select User</label>
+              <select class="form-select form-select-sm" id="enrollPinUser"></select></div>
+            <button class="btn btn-warning btn-sm" onclick="startEnroll('pin')" id="btnEnrollPin"><i class="bi bi-broadcast"></i> Capture Next PIN</button>
+            <button class="btn btn-outline-secondary btn-sm ms-1" onclick="cancelEnroll('pin')">Cancel</button>
+            <span class="ms-2 small text-muted" id="enrollPinStatus"></span>
+            <hr>
+            <h6>Manual PIN Entry</h6>
+            <div class="input-group input-group-sm mb-2">
+              <span class="input-group-text">PIN (HEX)</span>
+              <input type="text" class="form-control" id="manualPinHex" placeholder="e.g. 31323334">
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="manualEnrollPin()">Enroll PIN</button>
+          </div>
+        </div>
+      </div>
+      <h5 class="mt-4">Enrolled Credentials</h5>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover" id="credsTable">
+          <thead><tr><th>User</th><th>Type</th><th>Value (HEX)</th><th>Decimal</th><th>Bits</th><th>Reader</th><th>Enrolled</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ SCHEDULES ═══ -->
+    <div class="page d-none" id="page-schedules">
+      <h4 class="mb-3">Access Schedules</h4>
+      <p class="text-muted small">Schedules define when users are allowed access. Assign a schedule to each user.<br>
+        Days: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun. Times in 24h format.</p>
+      <button class="btn btn-sm btn-primary mb-3" onclick="showCreateSchedule()"><i class="bi bi-plus-lg"></i> New Schedule</button>
+      <div id="schedulesList"></div>
+    </div>
+
+    <!-- ═══ EVENTS ═══ -->
+    <div class="page d-none" id="page-events">
+      <h4 class="mb-3">Events Log</h4>
+      <div class="mb-2">
+        <select class="form-select form-select-sm d-inline-block w-auto" id="evTypeFilter" onchange="loadEvents()">
+          <option value="">All types</option>
+          <option value="card">Card</option><option value="keypad">Keypad</option>
+          <option value="state">State</option><option value="lstat">LSTAT</option>
+          <option value="door">Door</option><option value="sensor">Sensor</option>
+          <option value="nak">NAK</option><option value="error">Error</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadEvents()"><i class="bi bi-arrow-repeat"></i></button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover" id="eventsTable">
+          <thead><tr><th>Time</th><th>Type</th><th>Reader</th><th>Details</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ ACCESS LOG ═══ -->
+    <div class="page d-none" id="page-access-log">
+      <h4 class="mb-3">Access Log</h4>
+      <button class="btn btn-sm btn-outline-secondary mb-2" onclick="loadAccessLog()"><i class="bi bi-arrow-repeat"></i></button>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover" id="accessTable">
+          <thead><tr><th>Time</th><th>User</th><th>Method</th><th>Card/PIN</th><th>Reader</th><th>Granted</th><th>Reason</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ READER CONFIG ═══ -->
+    <div class="page d-none" id="page-config">
+      <h4 class="mb-3">Reader Configuration</h4>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="stat-card">
+            <h5><i class="bi bi-lightbulb"></i> LED Control</h5>
+            <div class="row g-2 mb-2">
+              <div class="col-4"><label class="form-label small">Reader #</label><input type="number" class="form-control form-control-sm" id="cfgLedIdx" value="0"></div>
+              <div class="col-4"><label class="form-label small">LED #</label><input type="number" class="form-control form-control-sm" id="cfgLedNum" value="0"></div>
+              <div class="col-4"><label class="form-label small">Temp Cmd</label>
+                <select class="form-select form-select-sm" id="cfgLedTempCmd"><option value="0">NOP</option><option value="1" selected>Set</option><option value="2">Flash</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-3"><label class="form-label small">On Time</label><input type="number" class="form-control form-control-sm" id="cfgLedTOn" value="5"></div>
+              <div class="col-3"><label class="form-label small">Off Time</label><input type="number" class="form-control form-control-sm" id="cfgLedTOff" value="5"></div>
+              <div class="col-3"><label class="form-label small">On Color</label>
+                <select class="form-select form-select-sm" id="cfgLedTOnClr"><option value="0">Black</option><option value="1" selected>Red</option><option value="2">Green</option><option value="3">Amber</option><option value="4">Blue</option></select></div>
+              <div class="col-3"><label class="form-label small">Off Color</label>
+                <select class="form-select form-select-sm" id="cfgLedTOffClr"><option value="0" selected>Black</option><option value="1">Red</option><option value="2">Green</option><option value="3">Amber</option><option value="4">Blue</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-4"><label class="form-label small">Timer (×100ms)</label><input type="number" class="form-control form-control-sm" id="cfgLedTimer" value="10"></div>
+              <div class="col-4"><label class="form-label small">Count</label><input type="number" class="form-control form-control-sm" id="cfgLedCnt" value="5"></div>
+              <div class="col-4"><label class="form-label small">Perm Cmd</label>
+                <select class="form-select form-select-sm" id="cfgLedPermCmd"><option value="0" selected>NOP</option><option value="1">Set</option><option value="2">Flash</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-3"><label class="form-label small">P.On</label><input type="number" class="form-control form-control-sm" id="cfgLedPOn" value="0"></div>
+              <div class="col-3"><label class="form-label small">P.Off</label><input type="number" class="form-control form-control-sm" id="cfgLedPOff" value="0"></div>
+              <div class="col-3"><label class="form-label small">P.On Clr</label>
+                <select class="form-select form-select-sm" id="cfgLedPOnClr"><option value="0" selected>Black</option><option value="1">Red</option><option value="2">Green</option><option value="3">Amber</option><option value="4">Blue</option></select></div>
+              <div class="col-3"><label class="form-label small">P.Off Clr</label>
+                <select class="form-select form-select-sm" id="cfgLedPOffClr"><option value="0" selected>Black</option><option value="1">Red</option><option value="2">Green</option><option value="3">Amber</option><option value="4">Blue</option></select></div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="sendLed()"><i class="bi bi-send"></i> Send LED</button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card mb-3">
+            <h5><i class="bi bi-bell"></i> Buzzer Control</h5>
+            <div class="row g-2 mb-2">
+              <div class="col-3"><label class="form-label small">Reader</label><input type="number" class="form-control form-control-sm" id="cfgBuzIdx" value="0"></div>
+              <div class="col-3"><label class="form-label small">Tone</label>
+                <select class="form-select form-select-sm" id="cfgBuzTone"><option value="0">None</option><option value="1" selected>Off</option><option value="2">Default</option></select></div>
+              <div class="col-2"><label class="form-label small">On</label><input type="number" class="form-control form-control-sm" id="cfgBuzOn" value="5"></div>
+              <div class="col-2"><label class="form-label small">Off</label><input type="number" class="form-control form-control-sm" id="cfgBuzOff" value="5"></div>
+              <div class="col-2"><label class="form-label small">Count</label><input type="number" class="form-control form-control-sm" id="cfgBuzCnt" value="3"></div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="sendBuzzer()"><i class="bi bi-send"></i> Send Buzzer</button>
+          </div>
+          <div class="stat-card mb-3">
+            <h5><i class="bi bi-wifi"></i> COM Settings</h5>
+            <div class="row g-2 mb-2">
+              <div class="col-3"><label class="form-label small">Reader</label><input type="number" class="form-control form-control-sm" id="cfgComIdx" value="0"></div>
+              <div class="col-4"><label class="form-label small">New Addr</label><input type="number" class="form-control form-control-sm" id="cfgComAddr" value="0"></div>
+              <div class="col-5"><label class="form-label small">Baud</label>
+                <select class="form-select form-select-sm" id="cfgComBaud"><option value="9600" selected>9600</option><option value="19200">19200</option><option value="38400">38400</option><option value="57600">57600</option><option value="115200">115200</option></select></div>
+            </div>
+            <button class="btn btn-sm btn-warning" onclick="sendComset()"><i class="bi bi-send"></i> Set COM</button>
+          </div>
+          <div class="stat-card mb-3">
+            <h5><i class="bi bi-key"></i> Security Key</h5>
+            <div class="row g-2 mb-2">
+              <div class="col-3"><label class="form-label small">Reader</label><input type="number" class="form-control form-control-sm" id="cfgKeyIdx" value="0"></div>
+              <div class="col-9"><label class="form-label small">SCBK (32 hex)</label><input type="text" class="form-control form-control-sm" id="cfgKeyVal" placeholder="0102030405060708090A0B0C0D0E0F10"></div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="sendKeyset()"><i class="bi bi-send"></i> Set Key</button>
+          </div>
+          <div class="stat-card">
+            <h5><i class="bi bi-toggle-on"></i> Relay / Output</h5>
+            <div class="row g-2 mb-2">
+              <div class="col-4"><label class="form-label small">Reader</label><input type="number" class="form-control form-control-sm" id="cfgRelIdx" value="0"></div>
+              <div class="col-4"><label class="form-label small">Value</label><input type="text" class="form-control form-control-sm" id="cfgRelVal" value="1500" placeholder="0,1,or ms"></div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="sendRelay()"><i class="bi bi-send"></i> Relay</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ COMMS MONITOR ═══ -->
+    <div class="page d-none" id="page-comms">
+      <h4 class="mb-3"><i class="bi bi-broadcast-pin text-info"></i> Comms Monitor
+        <span class="badge bg-success ms-2 small" id="commsLive">LIVE</span>
+      </h4>
+      <div class="row g-3 mb-3">
+        <div class="col-auto">
+          <div class="stat-card p-2 px-3"><h6>Heartbeat</h6><span id="commsHeartbeat" class="small text-success">--</span></div>
+        </div>
+        <div class="col-auto">
+          <div class="stat-card p-2 px-3"><h6>Bus TX</h6><span id="commsTx" class="value" style="font-size:1.2rem">0</span></div>
+        </div>
+        <div class="col-auto">
+          <div class="stat-card p-2 px-3"><h6>Bus RX</h6><span id="commsRx" class="value" style="font-size:1.2rem">0</span></div>
+        </div>
+        <div class="col-auto">
+          <div class="stat-card p-2 px-3"><h6>Uptime</h6><span id="commsUptime" class="small">--</span></div>
+        </div>
+        <div class="col-auto d-flex align-items-end">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="commsAutoScroll" checked>
+            <label class="form-check-label small" for="commsAutoScroll">Auto-scroll</label>
+          </div>
+        </div>
+        <div class="col-auto d-flex align-items-end">
+          <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('commsFeed').innerHTML=''"><i class="bi bi-trash"></i> Clear</button>
+          <button class="btn btn-sm btn-outline-info ms-1" onclick="api('/api/cmd/debug','POST',{on:true})"><i class="bi bi-bug"></i> Debug ON</button>
+          <button class="btn btn-sm btn-outline-secondary ms-1" onclick="api('/api/cmd/debug','POST',{on:false})">Debug OFF</button>
+        </div>
+      </div>
+      <div class="event-feed border rounded" id="commsFeed" style="height:500px;font-size:.75rem"></div>
+    </div>
+
+    <!-- ═══ SYSTEM LOGS ═══ -->
+    <div class="page d-none" id="page-system-logs">
+      <h4 class="mb-3"><i class="bi bi-file-earmark-text text-warning"></i> System Logs</h4>
+      <div class="mb-2">
+        <select class="form-select form-select-sm d-inline-block w-auto" id="sysLogLevel" onchange="loadSystemLogs()">
+          <option value="">All levels</option>
+          <option value="info">Info</option>
+          <option value="debug">Debug</option>
+          <option value="warn">Warning</option>
+          <option value="error">Error</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadSystemLogs()"><i class="bi bi-arrow-repeat"></i> Refresh</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover" id="sysLogsTable" style="font-size:.8rem">
+          <thead><tr><th style="width:170px">Time</th><th style="width:60px">Level</th><th style="width:70px">Source</th><th>Message</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ TERMINAL ═══ -->
+    <div class="page d-none" id="page-terminal">
+      <h4 class="mb-3">Raw Terminal</h4>
+      <div class="event-feed border rounded mb-2" id="termFeed" style="height:400px"></div>
+      <div class="input-group">
+        <input type="text" class="form-control" id="termInput" placeholder="Type command…" autocomplete="off">
+        <button class="btn btn-primary" onclick="sendTermCmd()">Send</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Access toast -->
+<div id="accessToast" class="d-none">
+  <div class="alert mb-0" id="accessToastInner"></div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title" id="userModalTitle">New User</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="editUserId">
+    <div class="mb-2"><label class="form-label small">Username</label><input type="text" class="form-control form-control-sm" id="newUsername"></div>
+    <div class="mb-2"><label class="form-label small">Full Name</label><input type="text" class="form-control form-control-sm" id="newFullName"></div>
+    <div class="mb-2"><label class="form-label small">Role</label>
+      <select class="form-select form-select-sm" id="newRole"><option value="user">User</option><option value="admin">Admin</option><option value="guard">Guard</option></select></div>
+    <div class="mb-2"><label class="form-label small">Schedule</label>
+      <select class="form-select form-select-sm" id="newSchedule"></select></div>
+    <div class="mb-2"><label class="form-label small">Allowed Readers <span class="text-muted">(comma-separated, blank = all)</span></label>
+      <input type="text" class="form-control form-control-sm" id="newAllowedReaders" placeholder="e.g. 0,1,2"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-primary btn-sm" id="userModalSave" onclick="saveUser()">Create</button></div>
+</div></div></div>
+
+<!-- Create Schedule Modal -->
+<div class="modal fade" id="schedModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">New Schedule</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div class="mb-2"><label class="form-label small">Name</label><input type="text" class="form-control form-control-sm" id="schedName"></div>
+    <div id="schedPeriods"></div>
+    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="addPeriodRow()"><i class="bi bi-plus"></i> Add Period</button>
+  </div>
+  <div class="modal-footer"><button class="btn btn-primary btn-sm" onclick="createSchedule()">Create</button></div>
+</div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+const socket = io();
+let txTimer, rxTimer;
+const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+/* ═══ Navigation ═══ */
+document.querySelectorAll('[data-page]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.add('d-none'));
+    document.getElementById('page-' + a.dataset.page).classList.remove('d-none');
+    const pg = a.dataset.page;
+    if (pg === 'users') loadUsers();
+    if (pg === 'enrollment') { loadUsersForEnroll(); loadCredentials(); }
+    if (pg === 'events') loadEvents();
+    if (pg === 'access-log') loadAccessLog();
+    if (pg === 'readers') loadReaders();
+    if (pg === 'schedules') loadSchedules();
+    if (pg === 'comms') { /* live - already streaming */ }
+    if (pg === 'system-logs') loadSystemLogs();
+  });
+});
+
+/* ═══ API helper ═══ */
+async function api(url, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  return r.json();
+}
+
+/* ═══ Bridge connect/disconnect ═══ */
+async function toggleConnect() {
+  if (document.getElementById('btnConnect').textContent.trim() === 'Connect') {
+    const r = await api('/api/bridge/connect', 'POST');
+    if (r.ok) {
+      updateConn(true, r.port);
+      // Auto-request status + SC after connect
+      setTimeout(async () => {
+        await api('/api/cmd/status', 'POST');
+        await api('/api/cmd/sc', 'POST', {index: 0});
+      }, 500);
+    } else alert('Could not connect. Is the Blue Pill plugged in?');
+  } else {
+    await api('/api/bridge/disconnect', 'POST');
+    updateConn(false);
+  }
+}
+
+function updateConn(on, port) {
+  document.getElementById('ledConn').classList.toggle('on', on);
+  document.getElementById('connLabel').textContent = on ? 'Connected' : 'Disconnected';
+  document.getElementById('btnConnect').textContent = on ? 'Disconnect' : 'Connect';
+  document.getElementById('btnConnect').className = 'btn btn-sm ' + (on ? 'btn-outline-danger' : 'btn-outline-success');
+  document.getElementById('portLabel').textContent = port ? port : '';
+}
+
+/* ═══ TX/RX blink ═══ */
+socket.on('tx', () => { const el=document.getElementById('ledTx'); el.classList.add('on'); clearTimeout(txTimer); txTimer=setTimeout(()=>el.classList.remove('on'),120); });
+socket.on('rx', () => { const el=document.getElementById('ledRx'); el.classList.add('on'); clearTimeout(rxTimer); rxTimer=setTimeout(()=>el.classList.remove('on'),120); });
+
+socket.on('bridge_status', d => {
+  updateConn(d.connected, d.port);
+  document.getElementById('txrxCounts').textContent = `TX:${d.tx} RX:${d.rx}`;
+});
+
+/* ═══ Live events ═══ */
+const eventFeed = document.getElementById('eventFeed');
+const termFeed = document.getElementById('termFeed');
+
+socket.on('event', ev => {
+  // Dashboard feed
+  const row = document.createElement('div');
+  row.className = 'ev-row';
+  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString() : '';
+  const badge = `<span class="badge bg-secondary">${ev.type}</span>`;
+  row.innerHTML = `<span class="text-muted">${ts}</span> ${badge} <span class="text-info">${esc(ev.raw||'')}</span>`;
+  eventFeed.prepend(row);
+  if (eventFeed.children.length > 300) eventFeed.lastChild.remove();
+
+  // Terminal feed
+  const tr = document.createElement('div');
+  tr.className = 'ev-row text-success';
+  tr.textContent = '\u2190 ' + (ev.raw || JSON.stringify(ev));
+  termFeed.appendChild(tr);
+  termFeed.scrollTop = termFeed.scrollHeight;
+
+  // Update dashboard stats
+  if (ev.type === 'status') {
+    document.getElementById('statReaders').textContent = ev.readers || 0;
+    document.getElementById('statTx').textContent = ev.tx || 0;
+    document.getElementById('statRx').textContent = ev.rx || 0;
+    document.getElementById('statUptime').textContent = formatUptime(ev.uptime);
+  }
+  if (ev.type === 'door') {
+    const el = document.getElementById('statDoor' + ev.sensor);
+    if (el) el.textContent = ev.closed ? 'Closed' : 'Open';
+  }
+  if (ev.type === 'sensor') document.getElementById('statSensor').textContent = ev.mask;
+  if (['pd_status','state','lstat','pdid'].includes(ev.type)) refreshReaderCards();
+
+  // TX/RX counts
+  api('/api/bridge/status').then(s => {
+    document.getElementById('txrxCounts').textContent = `TX:${s.tx} RX:${s.rx}`;
+  });
+});
+
+/* ═══ Access toast ═══ */
+socket.on('access', d => {
+  const toast = document.getElementById('accessToast');
+  const inner = document.getElementById('accessToastInner');
+  toast.classList.remove('d-none');
+  if (d.granted) {
+    inner.className = 'alert alert-success mb-0 access-granted';
+    inner.innerHTML = `<i class="bi bi-check-circle-fill"></i> <strong>ACCESS GRANTED</strong><br>${esc(d.username)} (${d.method}) Reader ${d.reader}`;
+  } else {
+    inner.className = 'alert alert-danger mb-0 access-denied';
+    inner.innerHTML = `<i class="bi bi-x-circle-fill"></i> <strong>ACCESS DENIED</strong><br>${d.username ? esc(d.username) + ' — ' : ''}${esc(d.reason||'unknown')} (${d.method}) Reader ${d.reader}`;
+  }
+  setTimeout(() => toast.classList.add('d-none'), 5000);
+});
+
+socket.on('enroll_done', d => {
+  const st = d.type==='card' ? document.getElementById('enrollCardStatus') : document.getElementById('enrollPinStatus');
+  st.textContent = `\u2713 Enrolled ${d.type} for ${d.user}` + (d.hex?' — '+d.hex:'');
+  st.className = 'ms-2 small text-success';
+  loadCredentials();
+});
+socket.on('enroll_waiting', d => {
+  const st = d.mode==='card' ? document.getElementById('enrollCardStatus') : document.getElementById('enrollPinStatus');
+  st.textContent = 'Waiting for ' + d.mode + '\u2026 Present now';
+  st.className = 'ms-2 small text-warning pulse-warn';
+});
+
+socket.on('pin_progress', d => {
+  const st = document.getElementById('enrollPinStatus');
+  if (!st) return;
+  if (d.length > 0) {
+    st.textContent = '\u2022'.repeat(d.length) + ' (' + d.length + ' digits) \u2014 auto-submit in 5s after last key';
+    st.className = 'ms-2 small text-info';
+  }
+});
+
+/* ═══ Reader cards on dashboard ═══ */
+async function refreshReaderCards() {
+  const readers = await api('/api/readers');
+  const container = document.getElementById('readerCardsRow');
+  container.innerHTML = '';
+  document.getElementById('statReaders').textContent = readers.length;
+  readers.forEach(r => {
+    const sc = r.sc ? '<span class="badge bg-success">SC</span>' : '<span class="badge bg-secondary">No SC</span>';
+    const tamper = r.tamper ? '<span class="badge bg-danger">TAMPER</span>' : '<span class="badge bg-success">OK</span>';
+    const power = r.power ? '<span class="badge bg-danger">POWER</span>' : '';
+    const col = document.createElement('div');
+    col.className = 'col-md-4 col-lg-3';
+    col.innerHTML = `<div class="reader-card">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Reader ${r.index}</h6>${sc}
+      </div>
+      <div class="small">State: <strong>${r.state||'?'}</strong></div>
+      <div class="small">Addr: ${r.addr??'?'} ${tamper} ${power}</div>
+      ${r.vendor ? `<div class="small text-muted">${r.vendor} S/N:${r.serial||''} FW:${r.firmware||''}</div>` : ''}
+    </div>`;
+    container.appendChild(col);
+  });
+}
+
+/* ═══ Users ═══ */
+async function loadUsers() {
+  const users = await api('/api/users');
+  const tbody = document.querySelector('#usersTable tbody');
+  tbody.innerHTML = '';
+  document.getElementById('statUsers').textContent = users.length;
+  for (const u of users) {
+    const creds = await api('/api/credentials?user_id=' + u.id);
+    const cards = creds.filter(c => c.type === 'card').length;
+    const pins = creds.filter(c => c.type === 'pin').length;
+    const readers = u.allowed_readers && u.allowed_readers.length ? u.allowed_readers.join(', ') : 'All';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(u.username)}</td><td>${esc(u.full_name||'')}</td><td><span class="badge bg-${u.role==='admin'?'warning':u.role==='guard'?'info':'secondary'}">${u.role}</span></td>
+      <td>${esc(u.schedule||'24/7')}</td><td>${readers}</td><td>${cards}</td><td>${pins}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-info" onclick='editUser(${JSON.stringify(_jsonSafe(u))})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.id}')"><i class="bi bi-trash"></i></button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function _jsonSafe(u) {
+  return { id: u.id, username: u.username, full_name: u.full_name||'', role: u.role, schedule: u.schedule||'24/7', allowed_readers: u.allowed_readers||[] };
+}
+
+async function showCreateUser() {
+  document.getElementById('editUserId').value = '';
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newFullName').value = '';
+  document.getElementById('newRole').value = 'user';
+  document.getElementById('newAllowedReaders').value = '';
+  document.getElementById('userModalTitle').textContent = 'New User';
+  document.getElementById('userModalSave').textContent = 'Create';
+  await populateScheduleSelects();
+  document.getElementById('newSchedule').value = '24/7';
+  new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+
+async function editUser(u) {
+  document.getElementById('editUserId').value = u.id;
+  document.getElementById('newUsername').value = u.username;
+  document.getElementById('newFullName').value = u.full_name;
+  document.getElementById('newRole').value = u.role;
+  document.getElementById('newAllowedReaders').value = (u.allowed_readers||[]).join(', ');
+  document.getElementById('userModalTitle').textContent = 'Edit User';
+  document.getElementById('userModalSave').textContent = 'Save';
+  await populateScheduleSelects();
+  document.getElementById('newSchedule').value = u.schedule || '24/7';
+  new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+
+async function saveUser() {
+  const uid = document.getElementById('editUserId').value;
+  const data = {
+    username: document.getElementById('newUsername').value,
+    full_name: document.getElementById('newFullName').value,
+    role: document.getElementById('newRole').value,
+    schedule: document.getElementById('newSchedule').value,
+    allowed_readers: document.getElementById('newAllowedReaders').value,
+  };
+  let r;
+  if (uid) {
+    r = await api('/api/users/' + uid, 'PUT', data);
+  } else {
+    r = await api('/api/users', 'POST', data);
+  }
+  if (r.ok || r.ok === undefined) {
+    bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+    loadUsers();
+  } else alert(r.error || 'Error');
+}
+
+async function deleteUser(id) {
+  if (!confirm('Deactivate this user?')) return;
+  await api('/api/users/' + id, 'DELETE');
+  loadUsers();
+}
+
+async function populateScheduleSelects() {
+  const scheds = await api('/api/schedules');
+  const sel = document.getElementById('newSchedule');
+  sel.innerHTML = '';
+  scheds.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+}
+
+/* ═══ Enrollment ═══ */
+async function loadUsersForEnroll() {
+  const users = await api('/api/users');
+  ['enrollCardUser','enrollPinUser'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    sel.innerHTML = '';
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id; opt.textContent = u.username + (u.full_name ? ' \u2014 ' + u.full_name : '');
+      sel.appendChild(opt);
+    });
+  });
+}
+
+async function startEnroll(mode) {
+  const uid = document.getElementById(mode==='card'?'enrollCardUser':'enrollPinUser').value;
+  if (!uid) return alert('Select a user first');
+  // Check bridge is connected
+  const status = await api('/api/bridge/status');
+  if (!status.connected) {
+    return alert('Bridge not connected! Go to Dashboard and click Connect first.');
+  }
+  const st = mode==='card' ? document.getElementById('enrollCardStatus') : document.getElementById('enrollPinStatus');
+  st.textContent = 'Waiting for ' + mode + '... Present card/enter PIN now';
+  st.className = 'ms-2 small text-warning';
+  const r = await api('/api/enroll/start', 'POST', { user_id: uid, mode });
+  if (!r.ok) {
+    st.textContent = 'Error starting enrollment';
+    st.className = 'ms-2 small text-danger';
+  }
+}
+
+async function cancelEnroll(mode) {
+  await api('/api/enroll/cancel', 'POST');
+  const st = mode==='card' ? document.getElementById('enrollCardStatus') : document.getElementById('enrollPinStatus');
+  st.textContent = 'Cancelled';
+  st.className = 'ms-2 small text-muted';
+}
+
+async function manualEnrollCard() {
+  const uid = document.getElementById('enrollCardUser').value;
+  const hex = document.getElementById('manualCardHex').value.trim();
+  if (!uid || !hex) return alert('Select user and enter card hex');
+  const r = await api('/api/enroll/card', 'POST', {
+    user_id: uid, card_hex: hex,
+    bits: parseInt(document.getElementById('manualCardBits').value)||26,
+    format: parseInt(document.getElementById('manualCardFmt').value)||1,
+  });
+  if (r.ok) { loadCredentials(); document.getElementById('manualCardHex').value=''; }
+  else alert(r.error || 'Error');
+}
+
+async function manualEnrollPin() {
+  const uid = document.getElementById('enrollPinUser').value;
+  const hex = document.getElementById('manualPinHex').value.trim();
+  if (!uid || !hex) return alert('Select user and enter PIN hex');
+  const r = await api('/api/enroll/pin', 'POST', { user_id: uid, pin_hex: hex });
+  if (r.ok) { loadCredentials(); document.getElementById('manualPinHex').value=''; }
+  else alert(r.error || 'Error');
+}
+
+async function loadCredentials() {
+  const creds = await api('/api/credentials');
+  const users = await api('/api/users');
+  const umap = {}; users.forEach(u => umap[u.id] = u.username);
+  const tbody = document.querySelector('#credsTable tbody');
+  tbody.innerHTML = '';
+  creds.forEach(c => {
+    const tr = document.createElement('tr');
+    const val = c.type==='card' ? c.card_hex : c.pin_hex;
+    const dec = c.type==='card' ? (c.card_dec||'') : '';
+    tr.innerHTML = `<td>${esc(umap[c.user_id]||'?')}</td><td>${c.type}</td><td><code>${val}</code></td><td>${dec}</td>
+      <td>${c.bits||''}</td><td>${c.reader??''}</td><td>${fmtTime(c.enrolled)}</td>
+      <td><button class="btn btn-sm btn-outline-danger" onclick="revokeCred('${c.id}')"><i class="bi bi-trash"></i></button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function revokeCred(id) {
+  if (!confirm('Revoke this credential?')) return;
+  await api('/api/credentials/' + id, 'DELETE');
+  loadCredentials();
+}
+
+/* ═══ Schedules ═══ */
+async function loadSchedules() {
+  const scheds = await api('/api/schedules');
+  const container = document.getElementById('schedulesList');
+  container.innerHTML = '';
+  scheds.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'reader-card';
+    let periodsHtml = '';
+    (s.periods||[]).forEach(p => {
+      const days = (p.days||[]).map(d => DAY_NAMES[d]).join(', ');
+      periodsHtml += `<div class="small">${days}: ${p.start} \u2013 ${p.end}</div>`;
+    });
+    div.innerHTML = `<div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">${esc(s.name)}</h5>
+      <button class="btn btn-sm btn-outline-danger" onclick="deleteSched('${s.id}')"><i class="bi bi-trash"></i></button>
+    </div>${periodsHtml || '<div class="small text-muted">No periods defined</div>'}`;
+    container.appendChild(div);
+  });
+}
+
+function showCreateSchedule() {
+  document.getElementById('schedName').value = '';
+  document.getElementById('schedPeriods').innerHTML = '';
+  addPeriodRow();
+  new bootstrap.Modal(document.getElementById('schedModal')).show();
+}
+
+function addPeriodRow() {
+  const container = document.getElementById('schedPeriods');
+  const idx = container.children.length;
+  const div = document.createElement('div');
+  div.className = 'border rounded p-2 mb-2';
+  let daysHtml = '';
+  DAY_NAMES.forEach((d,i) => {
+    daysHtml += `<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="pd${idx}d${i}" value="${i}" ${i<5?'checked':''}><label class="form-check-label small" for="pd${idx}d${i}">${d}</label></div>`;
+  });
+  div.innerHTML = `<div class="mb-1">${daysHtml}</div>
+    <div class="row g-2">
+      <div class="col"><input type="time" class="form-control form-control-sm" id="pd${idx}s" value="08:00"></div>
+      <div class="col"><input type="time" class="form-control form-control-sm" id="pd${idx}e" value="18:00"></div>
+    </div>`;
+  container.appendChild(div);
+}
+
+async function createSchedule() {
+  const name = document.getElementById('schedName').value.trim();
+  if (!name) return alert('Name required');
+  const container = document.getElementById('schedPeriods');
+  const periods = [];
+  for (let i=0; i<container.children.length; i++) {
+    const days = [];
+    for (let d=0; d<7; d++) {
+      const cb = document.getElementById(`pd${i}d${d}`);
+      if (cb && cb.checked) days.push(d);
+    }
+    const start = document.getElementById(`pd${i}s`).value;
+    const end = document.getElementById(`pd${i}e`).value;
+    if (days.length && start && end) periods.push({ days, start, end });
+  }
+  const r = await api('/api/schedules', 'POST', { name, periods });
+  if (r.ok) {
+    bootstrap.Modal.getInstance(document.getElementById('schedModal')).hide();
+    loadSchedules();
+  } else alert(r.error || 'Error');
+}
+
+async function deleteSched(id) {
+  if (!confirm('Delete this schedule?')) return;
+  await api('/api/schedules/' + id, 'DELETE');
+  loadSchedules();
+}
+
+/* ═══ Events page ═══ */
+async function loadEvents() {
+  const t = document.getElementById('evTypeFilter').value;
+  const url = '/api/events' + (t ? '?type='+t : '');
+  const events = await api(url);
+  const tbody = document.querySelector('#eventsTable tbody');
+  tbody.innerHTML = '';
+  events.forEach(ev => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${fmtTime(ev.ts)}</td><td><span class="badge bg-secondary">${ev.type}</span></td>
+      <td>${ev.reader??ev.index??''}</td><td><code>${esc(ev.raw||'')}</code></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ═══ Access log ═══ */
+async function loadAccessLog() {
+  const logs = await api('/api/access_log');
+  const tbody = document.querySelector('#accessTable tbody');
+  tbody.innerHTML = '';
+  logs.forEach(l => {
+    const tr = document.createElement('tr');
+    const granted = l.granted ? '<span class="badge bg-success">YES</span>' : '<span class="badge bg-danger">NO</span>';
+    tr.innerHTML = `<td>${fmtTime(l.ts)}</td><td>${esc(l.username||'\u2014')}</td><td>${l.method||'\u2014'}</td>
+      <td><code>${l.card_hex||l.pin_hex||''}</code></td><td>${l.reader??''}</td><td>${granted}</td><td>${esc(l.reason||'')}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ═══ Readers ═══ */
+async function loadReaders() {
+  const readers = await api('/api/readers');
+  const container = document.getElementById('readersList');
+  container.innerHTML = '';
+  if (!readers.length) {
+    container.innerHTML = '<div class="text-muted">No readers detected. Make sure the bridge is connected and click Refresh Status.</div>';
+    return;
+  }
+  readers.forEach(r => {
+    const sc = r.sc ? '<span class="badge bg-success">Secure</span>' : '<span class="badge bg-warning">Plain</span>';
+    const tamper = r.tamper ? '<span class="badge bg-danger">TAMPER</span>' : '<span class="badge bg-success">Normal</span>';
+    const div = document.createElement('div');
+    div.className = 'reader-card';
+    div.innerHTML = `<div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Reader ${r.index} \u2014 addr ${r.addr??'?'}</h5>
+      <div>${sc} ${tamper}</div></div>
+      <div class="small mt-2">State: <strong>${r.state||'?'}</strong> | Power: ${r.power?'FAULT':'OK'}</div>
+      ${r.vendor?`<div class="small text-muted mt-1">Vendor: ${r.vendor} | Model: ${r.model} | Serial: ${r.serial} | FW: ${r.firmware}</div>`:''}
+      <div class="mt-2">
+        <button class="btn btn-sm btn-outline-info" onclick="api('/api/cmd/id','POST',{index:${r.index}})">ID</button>
+        <button class="btn btn-sm btn-outline-info" onclick="api('/api/cmd/cap','POST',{index:${r.index}})">CAP</button>
+        <button class="btn btn-sm btn-outline-info" onclick="api('/api/cmd/lstat','POST',{index:${r.index}})">LSTAT</button>
+        <button class="btn btn-sm btn-outline-info" onclick="api('/api/cmd/istat','POST',{index:${r.index}})">ISTAT</button>
+        <button class="btn btn-sm btn-outline-info" onclick="api('/api/cmd/ostat','POST',{index:${r.index}})">OSTAT</button>
+        <button class="btn btn-sm btn-outline-success" onclick="api('/api/cmd/sc','POST',{index:${r.index}})">Secure</button>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function promptAddReader() {
+  const addr = prompt('OSDP address (0-126):', '0');
+  if (addr === null) return;
+  const scbk = prompt('SCBK hex (32 chars, blank=default):', '');
+  api('/api/cmd/add_reader', 'POST', { addr: parseInt(addr), scbk: scbk||undefined });
+}
+
+/* ═══ Reader Config ═══ */
+function sendLed() {
+  const v = id => document.getElementById(id).value;
+  const params = [v('cfgLedNum'), v('cfgLedTempCmd'), v('cfgLedTOn'), v('cfgLedTOff'),
+    v('cfgLedTOnClr'), v('cfgLedTOffClr'), v('cfgLedTimer'), v('cfgLedCnt'),
+    v('cfgLedPermCmd'), v('cfgLedPOn'), v('cfgLedPOff'), v('cfgLedPOnClr'), v('cfgLedPOffClr')].join(' ');
+  api('/api/cmd/led', 'POST', { index: parseInt(v('cfgLedIdx')), params });
+}
+function sendBuzzer() {
+  const v = id => document.getElementById(id).value;
+  api('/api/cmd/buzzer', 'POST', { index:parseInt(v('cfgBuzIdx')), tone:parseInt(v('cfgBuzTone')), on:parseInt(v('cfgBuzOn')), off:parseInt(v('cfgBuzOff')), count:parseInt(v('cfgBuzCnt')) });
+}
+function sendComset() {
+  const v = id => document.getElementById(id).value;
+  api('/api/cmd/comset', 'POST', { index:parseInt(v('cfgComIdx')), addr:parseInt(v('cfgComAddr')), baud:parseInt(v('cfgComBaud')) });
+}
+function sendKeyset() {
+  const v = id => document.getElementById(id).value;
+  const key = v('cfgKeyVal').replace(/\s/g, '');
+  if (key.length !== 32) return alert('Key must be 32 hex characters');
+  api('/api/cmd/keyset', 'POST', { index:parseInt(v('cfgKeyIdx')), key });
+}
+function sendRelay() {
+  const v = id => document.getElementById(id).value;
+  api('/api/cmd/relay', 'POST', { index:parseInt(v('cfgRelIdx')), value:v('cfgRelVal') });
+}
+
+/* ═══ Terminal ═══ */
+document.getElementById('termInput').addEventListener('keydown', e => { if(e.key==='Enter') sendTermCmd(); });
+function sendTermCmd() {
+  const inp = document.getElementById('termInput');
+  const cmd = inp.value.trim();
+  if (!cmd) return;
+  socket.emit('send_cmd', { cmd });
+  const row = document.createElement('div');
+  row.className = 'ev-row text-warning';
+  row.textContent = '\u2192 ' + cmd;
+  termFeed.appendChild(row);
+  termFeed.scrollTop = termFeed.scrollHeight;
+  inp.value = '';
+}
+
+/* ═══ Helpers ═══ */
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function fmtTime(t) { if(!t)return''; try{return new Date(t).toLocaleString();}catch{return t;} }
+function formatUptime(s) {
+  if(!s&&s!==0) return '\u2014';
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return `${h}h ${m}m ${sec}s`;
+}
+
+/* ═══ Comms Monitor ═══ */
+const commsFeed = document.getElementById('commsFeed');
+
+function commsColor(type) {
+  const colors = {
+    card:'#0f0', keypad:'#0f0', debug:'#f80', heartbeat:'#888',
+    state:'#0af', pd_status:'#0af', error:'#f33', nak:'#f33',
+    boot:'#ff0', config:'#ff0', pong:'#888', ok:'#888',
+    lstat:'#0af', istat:'#0af', ostat:'#0af', pdid:'#0af', pdcap:'#0af',
+    door:'#f80', sensor:'#f80', relay:'#f80', busy:'#f80',
+    status:'#0af'
+  };
+  return colors[type] || '#c9d1d9';
+}
+
+socket.on('comms', ev => {
+  if (!commsFeed) return;
+  const row = document.createElement('div');
+  row.className = 'ev-row';
+  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3}) : '';
+  const color = commsColor(ev.type);
+  row.innerHTML = `<span class="text-muted">${ts}</span> <span class="badge" style="background:${color};color:#000;font-size:.65rem">${ev.type}</span> <span style="color:${color}">${esc(ev.raw||'')}</span>`;
+  commsFeed.appendChild(row);
+  if (commsFeed.children.length > 2000) commsFeed.firstChild.remove();
+  if (document.getElementById('commsAutoScroll').checked) commsFeed.scrollTop = commsFeed.scrollHeight;
+});
+
+socket.on('heartbeat', d => {
+  const el = document.getElementById('commsHeartbeat');
+  if (el) { el.textContent = new Date().toLocaleTimeString(); el.className = 'small text-success'; }
+  const tx = document.getElementById('commsTx'); if (tx) tx.textContent = d.tx||0;
+  const rx = document.getElementById('commsRx'); if (rx) rx.textContent = d.rx||0;
+  const up = document.getElementById('commsUptime'); if (up) up.textContent = formatUptimeSec(d.uptime);
+  // Also update dashboard
+  document.getElementById('statTx').textContent = d.tx||0;
+  document.getElementById('statRx').textContent = d.rx||0;
+  document.getElementById('statUptime').textContent = formatUptimeSec(d.uptime);
+});
+
+socket.on('debug', d => {
+  // Debug events also go to comms feed via 'comms' event, no extra handling needed
+});
+
+function formatUptimeSec(s) {
+  if(!s&&s!==0) return '--';
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return `${h}h ${m}m ${sec}s`;
+}
+
+/* ═══ System Logs ═══ */
+async function loadSystemLogs() {
+  const level = document.getElementById('sysLogLevel').value;
+  const url = '/api/system_logs' + (level ? '?level='+level : '');
+  const logs = await api(url);
+  const tbody = document.querySelector('#sysLogsTable tbody');
+  tbody.innerHTML = '';
+  logs.forEach(l => {
+    const tr = document.createElement('tr');
+    const levelBadge = {info:'bg-info',debug:'bg-secondary',warn:'bg-warning text-dark',error:'bg-danger'}[l.level]||'bg-secondary';
+    tr.innerHTML = `<td>${fmtTime(l.ts)}</td><td><span class="badge ${levelBadge}">${l.level}</span></td>
+      <td>${esc(l.source||'')}</td><td><code>${esc(l.message||'')}</code></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ═══ Initial load ═══ */
+(async () => {
+  const s = await api('/api/bridge/status');
+  updateConn(s.connected, s.port || s.detected_port);
+  document.getElementById('txrxCounts').textContent = `TX:${s.tx} RX:${s.rx}`;
+  refreshReaderCards();
+  const users = await api('/api/users');
+  document.getElementById('statUsers').textContent = users.length;
+})();
+</script>
+</body>
+</html>

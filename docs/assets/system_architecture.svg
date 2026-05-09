@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,3 L0,6 z" fill="#2d3748" />
+    </marker>
+    <style>
+      .title { font: 700 30px Arial, sans-serif; fill: #1a202c; }
+      .subtitle { font: 600 18px Arial, sans-serif; fill: #2d3748; }
+      .label { font: 500 16px Arial, sans-serif; fill: #1a202c; }
+      .small { font: 400 14px Arial, sans-serif; fill: #2d3748; }
+      .box { rx: 18; ry: 18; stroke: #2d3748; stroke-width: 2; }
+      .arrow { stroke: #2d3748; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 10 8; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="720" fill="#f7fafc" />
+  <text x="50" y="55" class="title">OSDP Access Controller PoC: Full System Architecture</text>
+  <text x="50" y="88" class="small">Physical reader testing bench, STM32 bridge firmware, Flask backend, React UI, and MongoDB persistence</text>
+
+  <rect x="60" y="150" width="200" height="120" class="box" fill="#bee3f8" />
+  <text x="160" y="190" text-anchor="middle" class="subtitle">OSDP Reader / PD</text>
+  <text x="160" y="220" text-anchor="middle" class="small">card reads</text>
+  <text x="160" y="245" text-anchor="middle" class="small">keypad events</text>
+  <text x="160" y="270" text-anchor="middle" class="small">LED / buzzer / relay feedback</text>
+
+  <rect x="320" y="150" width="220" height="120" class="box" fill="#c6f6d5" />
+  <text x="430" y="190" text-anchor="middle" class="subtitle">RS-485 Transceiver</text>
+  <text x="430" y="220" text-anchor="middle" class="small">MAX485-style module</text>
+  <text x="430" y="245" text-anchor="middle" class="small">A/B differential bus</text>
+  <text x="430" y="270" text-anchor="middle" class="small">half-duplex physical layer</text>
+
+  <rect x="610" y="120" width="250" height="180" class="box" fill="#fed7d7" />
+  <text x="735" y="160" text-anchor="middle" class="subtitle">STM32 Blue Pill Bridge</text>
+  <text x="735" y="192" text-anchor="middle" class="small">firmware translates text commands</text>
+  <text x="735" y="216" text-anchor="middle" class="small">to real OSDP frames</text>
+  <text x="735" y="248" text-anchor="middle" class="small">USB CDC interface: PING, STATUS, SC,</text>
+  <text x="735" y="272" text-anchor="middle" class="small">LED, BUZ, RELAY, KEYSET, COMSET</text>
+
+  <rect x="610" y="380" width="260" height="170" class="box" fill="#faf089" />
+  <text x="740" y="420" text-anchor="middle" class="subtitle">Raspberry Pi 3B</text>
+  <text x="740" y="450" text-anchor="middle" class="small">Python backend + Node build tools</text>
+  <text x="740" y="474" text-anchor="middle" class="small">USB host to STM32 bridge</text>
+  <text x="740" y="498" text-anchor="middle" class="small">Docker MongoDB on localhost</text>
+  <text x="740" y="522" text-anchor="middle" class="small">systemd service for app.py</text>
+
+  <rect x="980" y="120" width="240" height="180" class="box" fill="#e9d8fd" />
+  <text x="1100" y="160" text-anchor="middle" class="subtitle">Flask + Socket.IO Backend</text>
+  <text x="1100" y="192" text-anchor="middle" class="small">REST API for operators</text>
+  <text x="1100" y="216" text-anchor="middle" class="small">policy engine for cards and PINs</text>
+  <text x="1100" y="240" text-anchor="middle" class="small">event fan-out to web UI</text>
+  <text x="1100" y="264" text-anchor="middle" class="small">reader state persistence</text>
+
+  <rect x="970" y="390" width="250" height="160" class="box" fill="#feebc8" />
+  <text x="1095" y="430" text-anchor="middle" class="subtitle">MongoDB: osdp_access</text>
+  <text x="1095" y="460" text-anchor="middle" class="small">users</text>
+  <text x="1095" y="482" text-anchor="middle" class="small">credentials</text>
+  <text x="1095" y="504" text-anchor="middle" class="small">events / access_log / readers</text>
+  <text x="1095" y="526" text-anchor="middle" class="small">schedules / system_logs</text>
+
+  <rect x="980" y="600" width="240" height="80" class="box" fill="#b2f5ea" />
+  <text x="1100" y="636" text-anchor="middle" class="subtitle">React Admin UI</text>
+  <text x="1100" y="662" text-anchor="middle" class="small">dashboard, logs, readers, users, firmware</text>
+
+  <line x1="260" y1="210" x2="320" y2="210" class="arrow" />
+  <text x="290" y="195" text-anchor="middle" class="label">OSDP over RS-485</text>
+
+  <line x1="540" y1="210" x2="610" y2="210" class="arrow" />
+  <text x="575" y="195" text-anchor="middle" class="label">UART</text>
+
+  <line x1="735" y1="300" x2="735" y2="380" class="arrow" />
+  <text x="760" y="345" class="label">USB CDC</text>
+
+  <line x1="870" y1="210" x2="980" y2="210" class="arrow" />
+  <text x="925" y="195" text-anchor="middle" class="label">parsed events + commands</text>
+
+  <line x1="980" y1="470" x2="870" y2="470" class="arrow dashed" />
+  <text x="925" y="455" text-anchor="middle" class="label">status / logs / reader snapshots</text>
+
+  <line x1="1095" y1="300" x2="1095" y2="390" class="arrow" />
+  <text x="1120" y="350" class="label">PyMongo</text>
+
+  <line x1="1095" y1="550" x2="1095" y2="600" class="arrow" />
+  <text x="1120" y="580" class="label">HTTP + Socket.IO</text>
+
+  <rect x="60" y="380" width="430" height="170" class="box" fill="#edf2f7" />
+  <text x="275" y="420" text-anchor="middle" class="subtitle">Core Runtime Idea</text>
+  <text x="90" y="455" class="small">1. Backend sends human-readable commands to the STM32 bridge.</text>
+  <text x="90" y="482" class="small">2. STM32 firmware performs the real OSDP transaction with the reader.</text>
+  <text x="90" y="509" class="small">3. Reader responses return as text events such as !CARD, !KEYPAD, !PD, !PDID.</text>
+  <text x="90" y="536" class="small">4. Flask logs the event, applies access policy, updates MongoDB, and informs the UI.</text>
+</svg>

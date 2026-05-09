@@ -1,0 +1,196 @@
+/* ── Global styles for OSDP Access Control Panel ── */
+:root {
+  --accent: #0d6efd;
+  --success: #198754;
+  --danger: #dc3545;
+  --warning: #ffc107;
+  --bg-body: #0b0f19;
+  --bg-card: #161b22;
+  --border: #21262d;
+  --text-muted: #8b949e;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg-body);
+  color: #c9d1d9;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  width: 240px;
+  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  transition: transform 0.3s;
+}
+.sidebar .nav-link {
+  color: var(--text-muted);
+  padding: 0.65rem 1.25rem;
+  font-size: 0.875rem;
+  border-radius: 0;
+  cursor: pointer;
+}
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  color: #f0f6fc;
+  background: #1c2333;
+}
+.sidebar .nav-link i {
+  width: 22px;
+  text-align: center;
+  margin-right: 8px;
+}
+
+/* ── Main content ── */
+.main-content {
+  margin-left: 240px;
+  padding: 1.5rem;
+}
+
+/* ── Top bar ── */
+.top-bar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: -1.5rem -1.5rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-wrap: wrap;
+}
+
+/* ── LED indicators ── */
+.led {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.led-conn      { background: #555; }
+.led-conn.on   { background: #0f0; box-shadow: 0 0 6px #0f0; }
+
+/* TX/RX LEDs — fast blink when active */
+.led-tx        { background: #1a1a1a; border: 1px solid #333; }
+.led-tx.on     { background: #0f0; box-shadow: 0 0 10px #0f0, 0 0 20px rgba(0,255,0,0.3); border-color: #0f0; }
+.led-tx.active { animation: blink-tx 150ms infinite; }
+
+.led-rx        { background: #1a1a1a; border: 1px solid #333; }
+.led-rx.on     { background: #f80; box-shadow: 0 0 10px #f80, 0 0 20px rgba(255,136,0,0.3); border-color: #f80; }
+.led-rx.active { animation: blink-rx 150ms infinite; }
+
+@keyframes blink-tx {
+  0%, 100% { background: #0f0; box-shadow: 0 0 10px #0f0; }
+  50%      { background: #030; box-shadow: none; }
+}
+@keyframes blink-rx {
+  0%, 100% { background: #f80; box-shadow: 0 0 10px #f80; }
+  50%      { background: #310; box-shadow: none; }
+}
+
+.led-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.led-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.led-group .led {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Stat card ── */
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+.stat-card h6 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.stat-card .value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+/* ── Event feed ── */
+.event-feed {
+  max-height: 420px;
+  overflow-y: auto;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.8rem;
+}
+.event-feed .ev-row {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.event-feed .ev-row:hover {
+  background: #1c2333;
+}
+
+/* ── Reader card ── */
+.reader-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Modal ── */
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+/* ── Access toast ── */
+.access-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  min-width: 320px;
+}
+
+.access-granted { animation: flashGreen 0.6s; }
+.access-denied  { animation: flashRed 0.6s; }
+
+@keyframes flashGreen {
+  0%, 100% { background: transparent; }
+  50%      { background: rgba(25, 135, 84, 0.25); }
+}
+@keyframes flashRed {
+  0%, 100% { background: transparent; }
+  50%      { background: rgba(220, 53, 69, 0.25); }
+}
+
+.pulse-warn { animation: pulseWarn 1.5s infinite; }
+@keyframes pulseWarn {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 991px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.show { transform: translateX(0); }
+  .main-content { margin-left: 0; }
+}

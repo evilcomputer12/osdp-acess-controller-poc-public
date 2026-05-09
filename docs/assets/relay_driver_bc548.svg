@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <defs>
+    <style>
+      .title { font: 700 30px Arial, sans-serif; fill: #1a202c; }
+      .label { font: 500 18px Arial, sans-serif; fill: #1a202c; }
+      .small { font: 400 15px Arial, sans-serif; fill: #2d3748; }
+      .wire { stroke: #1a202c; stroke-width: 3; fill: none; }
+      .part { stroke: #1a202c; stroke-width: 3; fill: #fff; }
+      .accent { fill: #fefcbf; stroke: #1a202c; stroke-width: 2; }
+    </style>
+  </defs>
+  <rect width="1200" height="760" fill="#f7fafc"/>
+  <text x="50" y="55" class="title">BC548 Relay Driver Concept Used in Small Access-Control Prototypes</text>
+
+  <line x1="140" y1="140" x2="140" y2="640" class="wire"/>
+  <line x1="140" y1="140" x2="1060" y2="140" class="wire"/>
+  <text x="80" y="130" class="label">+12V</text>
+
+  <line x1="140" y1="640" x2="1060" y2="640" class="wire"/>
+  <text x="70" y="650" class="label">GND</text>
+
+  <rect x="760" y="230" width="170" height="90" class="accent" rx="18" ry="18"/>
+  <text x="845" y="270" text-anchor="middle" class="label">Relay Coil</text>
+  <text x="845" y="295" text-anchor="middle" class="small">12V coil</text>
+
+  <line x1="845" y1="140" x2="845" y2="230" class="wire"/>
+  <line x1="845" y1="320" x2="845" y2="390" class="wire"/>
+
+  <line x1="760" y1="205" x2="930" y2="205" class="wire"/>
+  <line x1="760" y1="205" x2="760" y2="165" class="wire"/>
+  <line x1="930" y1="205" x2="930" y2="165" class="wire"/>
+  <line x1="775" y1="165" x2="915" y2="165" class="wire"/>
+  <polygon points="840,180 865,165 865,195" fill="#1a202c"/>
+  <line x1="865" y1="165" x2="890" y2="165" class="wire"/>
+  <text x="945" y="175" class="small">1N4148 / 1N4007 flyback diode</text>
+
+  <circle cx="560" cy="430" r="55" class="part"/>
+  <line x1="560" y1="375" x2="560" y2="320" class="wire"/>
+  <line x1="560" y1="485" x2="560" y2="640" class="wire"/>
+  <line x1="505" y1="430" x2="430" y2="430" class="wire"/>
+  <line x1="535" y1="410" x2="585" y2="385" class="wire"/>
+  <line x1="535" y1="450" x2="585" y2="475" class="wire"/>
+  <line x1="585" y1="385" x2="585" y2="360" class="wire"/>
+  <line x1="585" y1="475" x2="585" y2="500" class="wire"/>
+  <polygon points="575,448 597,470 568,472" fill="#1a202c"/>
+  <text x="560" y="442" text-anchor="middle" class="label">BC548</text>
+  <text x="620" y="360" class="small">Collector</text>
+  <text x="620" y="505" class="small">Emitter</text>
+  <text x="425" y="420" class="small">Base</text>
+
+  <line x1="585" y1="360" x2="845" y2="360" class="wire"/>
+  <line x1="845" y1="360" x2="845" y2="390" class="wire"/>
+
+  <rect x="240" y="380" width="120" height="100" class="accent" rx="12" ry="12"/>
+  <text x="300" y="420" text-anchor="middle" class="label">1kΩ</text>
+  <text x="300" y="448" text-anchor="middle" class="small">base resistor</text>
+  <line x1="360" y1="430" x2="430" y2="430" class="wire"/>
+
+  <rect x="80" y="380" width="120" height="100" class="accent" rx="12" ry="12"/>
+  <text x="140" y="420" text-anchor="middle" class="label">GPIO</text>
+  <text x="140" y="448" text-anchor="middle" class="small">STM32 / Pi control</text>
+  <line x1="200" y1="430" x2="240" y2="430" class="wire"/>
+
+  <rect x="790" y="500" width="200" height="80" class="accent" rx="14" ry="14"/>
+  <text x="890" y="535" text-anchor="middle" class="label">Relay Contacts</text>
+  <text x="890" y="560" text-anchor="middle" class="small">drive lock, buzzer, or test load</text>
+  <line x1="930" y1="275" x2="1030" y2="275" class="wire"/>
+  <line x1="1030" y1="275" x2="1030" y2="500" class="wire"/>
+
+  <text x="60" y="710" class="small">Why this matters in the project: the relay path turns low-current MCU logic into a safe on/off control signal for door-lock or test-bench hardware.</text>
+  <text x="60" y="735" class="small">The transistor protects the MCU from coil current, while the diode suppresses the inductive kick when the relay is released.</text>
+</svg>

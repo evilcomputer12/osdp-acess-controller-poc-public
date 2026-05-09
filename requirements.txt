@@ -1,0 +1,6 @@
+flask>=3.0
+flask-socketio>=5.3
+pymongo>=4.6
+pyserial>=3.5
+eventlet>=0.35
+requests>=2.31

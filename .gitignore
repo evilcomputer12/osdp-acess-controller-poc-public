@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+frontend/node_modules/
+frontend/.vite/
+
+static/dist/
+frontend/dist/
+
+backups/
+.env
+.env.*
+*.log
+
+.DS_Store
+Thumbs.db
+
+eps32-osdp-bridge/
+flutter osdp app a/
