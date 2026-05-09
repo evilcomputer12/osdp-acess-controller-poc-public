@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket';
-import { api } from './api';
+import { api, setApiHooks } from './api';
 import Dashboard from './pages/Dashboard';
 import Readers from './pages/Readers';
 import Users from './pages/Users';
@@ -29,7 +29,87 @@ const NAV = [
   { id: 'firmware',    icon: 'bi-cloud-arrow-up',       label: 'Firmware' },
 ];
 
+const VIEWER_NAV_IDS = new Set(['dashboard', 'events', 'access-log', 'comms', 'system-logs']);
+
+function allowedNav(role) {
+  return role === 'admin' ? NAV : NAV.filter(item => VIEWER_NAV_IDS.has(item.id));
+}
+
+function LoginScreen({ onLogin, pending, error }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const submit = async (event) => {
+    event.preventDefault();
+    await onLogin({ username, password });
+  };
+
+  const usePreset = (nextUsername, nextPassword) => {
+    setUsername(nextUsername);
+    setPassword(nextPassword);
+  };
+
+  return (
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="auth-header">
+          <span className="auth-eyebrow">OSDP Admin Panel</span>
+          <h1>Sign in</h1>
+          <p className="text-secondary mb-0">Use the admin account for full control or the DB2 demo account for a read-only live view.</p>
+        </div>
+
+        <div className="auth-presets">
+          <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => usePreset('admin', 'osdp')}>
+            Admin preset
+          </button>
+          <button type="button" className="btn btn-sm btn-outline-info" onClick={() => usePreset('demo', 'db2')}>
+            Demo preset
+          </button>
+        </div>
+
+        <form onSubmit={submit}>
+          <div className="mb-3">
+            <label className="form-label small">Username</label>
+            <input
+              className="form-control"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              autoComplete="username"
+              disabled={pending}
+            />
+          </div>
+          <div className="mb-3">
+            <label className="form-label small">Password</label>
+            <input
+              type="password"
+              className="form-control"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              disabled={pending}
+            />
+          </div>
+
+          {error && <div className="alert alert-danger py-2">{error}</div>}
+
+          <button type="submit" className="btn btn-primary w-100" disabled={pending || !username || !password}>
+            {pending ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+
+        <div className="auth-note">
+          <strong>Roles:</strong> <code>admin / osdp</code> can configure readers, enroll users, and flash firmware. <code>demo / db2</code> can only view live activity and logs.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [authUser, setAuthUser] = useState(null);
+  const [authBusy, setAuthBusy] = useState(true);
+  const [loginPending, setLoginPending] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -60,8 +140,57 @@ export default function App() {
   // Stats
   const [stats, setStats] = useState({ readers: 0, users: 0, tx: 0, rx: 0, uptime: null });
 
+  const isAdmin = authUser?.role === 'admin';
+  const navItems = allowedNav(authUser?.role);
+
+  useEffect(() => {
+    setApiHooks({
+      onUnauthorized: () => {
+        socket.disconnect();
+        setAuthUser(null);
+        setConnected(false);
+        setPort('');
+        setSidebarOpen(false);
+        setPage('dashboard');
+        setLoginError('Session expired. Please sign in again.');
+      },
+    });
+    return () => setApiHooks({});
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const restoreSession = async () => {
+      const result = await api('/api/auth/me', 'GET', null, { ignoreUnauthorized: true });
+      if (!active) return;
+      if (result.ok && result.user) {
+        setAuthUser(result.user);
+        setLoginError('');
+      } else {
+        socket.disconnect();
+        setAuthUser(null);
+      }
+      setAuthBusy(false);
+    };
+    restoreSession();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) return;
+    const allowed = allowedNav(authUser.role);
+    if (!allowed.some(item => item.id === page)) {
+      setPage(allowed[0]?.id || 'dashboard');
+    }
+  }, [authUser, page]);
+
   // ── Socket listeners ──
   useEffect(() => {
+    if (!authUser) {
+      socket.disconnect();
+      return undefined;
+    }
+
     const onBridgeStatus = (d) => {
       setConnected(d.connected);
       setPort(d.port || '');
@@ -118,6 +247,7 @@ export default function App() {
     socket.on('comms', onComms);
     socket.on('access', onAccess);
     socket.on('heartbeat', onHeartbeat);
+    if (!socket.connected) socket.connect();
 
     // Initial load
     api('/api/bridge/status').then(s => {
@@ -134,10 +264,37 @@ export default function App() {
       socket.off('comms', onComms);
       socket.off('access', onAccess);
       socket.off('heartbeat', onHeartbeat);
+      socket.disconnect();
     };
+  }, [authUser]);
+
+  const handleLogin = useCallback(async ({ username, password }) => {
+    setLoginPending(true);
+    setLoginError('');
+    const result = await api('/api/auth/login', 'POST', { username, password }, { ignoreUnauthorized: true });
+    if (result.ok && result.user) {
+      setAuthUser(result.user);
+      setPage('dashboard');
+      setSidebarOpen(false);
+    } else {
+      setAuthUser(null);
+      setLoginError(result.error || 'Sign-in failed');
+    }
+    setLoginPending(false);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await api('/api/auth/logout', 'POST', null, { ignoreUnauthorized: true });
+    socket.disconnect();
+    setAuthUser(null);
+    setConnected(false);
+    setPort('');
+    setSidebarOpen(false);
+    setPage('dashboard');
   }, []);
 
   const toggleConnect = useCallback(async () => {
+    if (!isAdmin) return;
     if (connected) {
       await api('/api/bridge/disconnect', 'POST');
       setConnected(false);
@@ -155,7 +312,7 @@ export default function App() {
         alert('Could not connect. Is the Blue Pill plugged in?');
       }
     }
-  }, [connected]);
+  }, [connected, isAdmin]);
 
   const renderPage = () => {
     switch (page) {
@@ -167,13 +324,21 @@ export default function App() {
       case 'events':      return <Events />;
       case 'access-log':  return <AccessLog />;
       case 'config':      return <ReaderConfig />;
-      case 'comms':       return <CommsMonitor feed={commsFeed} setFeed={setCommsFeed} />;
+      case 'comms':       return <CommsMonitor feed={commsFeed} setFeed={setCommsFeed} canDebug={isAdmin} />;
       case 'system-logs': return <SystemLogs />;
       case 'terminal':    return <Terminal />;
       case 'firmware':    return <FirmwareUpdate />;
       default:            return <Dashboard liveFeed={liveFeed} stats={stats} setStats={setStats} />;
     }
   };
+
+  if (authBusy) {
+    return <div className="auth-shell"><div className="auth-card text-center">Checking session...</div></div>;
+  }
+
+  if (!authUser) {
+    return <LoginScreen onLogin={handleLogin} pending={loginPending} error={loginError} />;
+  }
 
   return (
     <>
@@ -186,7 +351,7 @@ export default function App() {
           <small className="text-muted">Access Control System</small>
         </div>
         <ul className="nav flex-column mt-2">
-          {NAV.map(n => (
+          {navItems.map(n => (
             <li key={n.id}>
               <a
                 className={`nav-link ${page === n.id ? 'active' : ''}`}
@@ -213,12 +378,16 @@ export default function App() {
 
           <span className={`led led-conn ${connected ? 'on' : ''}`} title="Bridge connected"></span>
           <span className="text-muted small">{connected ? 'Connected' : 'Disconnected'}</span>
-          <button
-            className={`btn btn-sm ${connected ? 'btn-outline-danger' : 'btn-outline-success'}`}
-            onClick={toggleConnect}
-          >
-            {connected ? 'Disconnect' : 'Connect'}
-          </button>
+          {isAdmin ? (
+            <button
+              className={`btn btn-sm ${connected ? 'btn-outline-danger' : 'btn-outline-success'}`}
+              onClick={toggleConnect}
+            >
+              {connected ? 'Disconnect' : 'Connect'}
+            </button>
+          ) : (
+            <span className="badge bg-secondary">Read-only session</span>
+          )}
 
           {/* TX/RX LEDs — Controller & Reader */}
           <div className="ms-3 d-flex align-items-center gap-3">
@@ -233,7 +402,16 @@ export default function App() {
           </div>
 
           <span className="ms-2 small text-muted">TX:{txCount} RX:{rxCount}</span>
-          <span className="ms-auto small text-muted">{port}</span>
+          <span className="small text-muted">{port}</span>
+          <div className="ms-auto d-flex align-items-center gap-2 user-chip">
+            <span className={`badge ${isAdmin ? 'bg-warning text-dark' : 'bg-info text-dark'}`}>
+              {isAdmin ? 'Admin' : 'Viewer'}
+            </span>
+            <span className="small text-muted">{authUser.display_name || authUser.username}</span>
+            <button className="btn btn-sm btn-outline-secondary" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
         </div>
 
         {renderPage()}

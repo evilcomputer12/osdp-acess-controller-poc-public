@@ -33,9 +33,27 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     },
   ];
 
+  const PANEL_USER_SEEDS = [
+    {
+      username: 'admin',
+      role: 'admin',
+      display_name: 'OSDP Administrator',
+      password_hash: 'scrypt:32768:8:1$il0dUn4F7AkWapaL$cee1e40fd6b8841cbc6734c75b995df26e7bbf57988b0d5c9dd3de74a6d4a0a0f8da27b725a4d9d0763bdb11b8e322321264998918201f29740aa29e707407ba',
+      active: true,
+    },
+    {
+      username: 'demo',
+      role: 'viewer',
+      display_name: 'DB2 Demo Viewer',
+      password_hash: 'scrypt:32768:8:1$tFtKHzA0Mnuw3fFr$3beaabd087bceff6fa1707e8990b5ed254fff9300980bc7df8e5d37b64628d4ff6f77e1f95ce96850f883c3003576bce4b9cb0a6f40070daa14ae0792bfcaae6',
+      active: true,
+    },
+  ];
+
   // These are the collections used by the access controller application.
   const COLLECTIONS = [
     'users',
+    'panel_users',
     'credentials',
     'events',
     'access_log',
@@ -127,6 +145,7 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
   // Match the indexes created by the Python model layer and add sparse PIN lookup.
   function ensureIndexes() {
     dbHandle.users.createIndex({ username: 1 }, { unique: true, name: 'username_1_unique' });
+    dbHandle.panel_users.createIndex({ username: 1 }, { unique: true, name: 'username_1_unique' });
     dbHandle.credentials.createIndex({ user_id: 1 }, { name: 'user_id_1' });
     dbHandle.credentials.createIndex({ card_hex: 1 }, { name: 'card_hex_1' });
     dbHandle.credentials.createIndex({ pin_hex: 1 }, { sparse: true, name: 'pin_hex_1_sparse' });
@@ -149,11 +168,29 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     return listSchedules();
   }
 
+  // Seed the fixed web-panel accounts used by the Flask login flow.
+  function seedPanelUsers() {
+    for (const panelUser of PANEL_USER_SEEDS) {
+      dbHandle.panel_users.updateOne(
+        { username: panelUser.username },
+        {
+          $setOnInsert: {
+            ...panelUser,
+            created: nowUtc(),
+          },
+        },
+        { upsert: true }
+      );
+    }
+    return listPanelUsers();
+  }
+
   // Initialize the schema in one call for first use or demo resets.
   function init() {
     ensureCollections();
     ensureIndexes();
     seedSchedules();
+    seedPanelUsers();
     return summary();
   }
 
@@ -164,6 +201,7 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
       collections: dbHandle.getCollectionNames().sort(),
       counts: {
         users: dbHandle.users.countDocuments(),
+        panel_users: dbHandle.panel_users.countDocuments(),
         credentials: dbHandle.credentials.countDocuments(),
         events: dbHandle.events.countDocuments(),
         access_log: dbHandle.access_log.countDocuments(),
@@ -181,6 +219,9 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     print('  osdpAccess.init()');
     print('  osdpAccess.summary()');
     print('  osdpAccess.resetDatabase({ dropDatabase: true|false })');
+    print('Panel users:');
+    print('  osdpAccess.listPanelUsers({ activeOnly: true|false })');
+    print('  osdpAccess.getPanelUserByUsername(username)');
     print('Users:');
     print('  osdpAccess.createUser({...})');
     print('  osdpAccess.listUsers({ activeOnly: true|false })');
@@ -227,6 +268,17 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     print('  osdpAccess.accessByPin({ pin_hex, reader, when })');
     print('Factory usage for demos:');
     print('  const demo = createOsdpAccessApi("osdp_access_demo")');
+  }
+
+  // Create a user document with the same shape as the backend application.
+  function listPanelUsers({ activeOnly = true } = {}) {
+    const filter = activeOnly ? { active: true } : {};
+    return dbHandle.panel_users.find(filter).sort({ username: 1 }).toArray();
+  }
+
+  // Read a single panel user by unique username.
+  function getPanelUserByUsername(username) {
+    return dbHandle.panel_users.findOne({ username });
   }
 
   // Create a user document with the same shape as the backend application.
@@ -666,6 +718,9 @@ function createOsdpAccessApi(databaseName = 'osdp_access') {
     ensureCollections,
     ensureIndexes,
     seedSchedules,
+    seedPanelUsers,
+    listPanelUsers,
+    getPanelUserByUsername,
     createUser,
     listUsers,
     getUserById,

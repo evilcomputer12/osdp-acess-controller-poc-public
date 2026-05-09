@@ -31,6 +31,7 @@ passed = 0
 failed = 0
 skipped = 0
 results = []
+SESSION = requests.Session()
 
 def log(tag, msg, color=Colors.CYAN):
     print(f"{color}[{tag}]{Colors.RESET} {msg}")
@@ -65,23 +66,41 @@ def skip(name, reason=""):
 
 
 def get(url, **kw):
-    return requests.get(url, timeout=10, **kw)
+    return SESSION.get(url, timeout=10, **kw)
 
 
 def post(url, body=None, **kw):
     headers = {"Content-Type": "application/json"} if body is not None else {}
     data = json.dumps(body) if body is not None else None
-    return requests.post(url, data=data, headers=headers, timeout=10, **kw)
+    return SESSION.post(url, data=data, headers=headers, timeout=10, **kw)
 
 
 def put(url, body=None):
     headers = {"Content-Type": "application/json"} if body is not None else {}
     data = json.dumps(body) if body is not None else None
-    return requests.put(url, data=data, headers=headers, timeout=10)
+    return SESSION.put(url, data=data, headers=headers, timeout=10)
 
 
 def delete(url):
-    return requests.delete(url, timeout=10)
+    return SESSION.delete(url, timeout=10)
+
+
+def authenticate(base, username, password):
+    log("AUTH", f"Signing in as {username}")
+    response = post(f"{base}/api/auth/login", {"username": username, "password": password})
+    if response.status_code >= 400:
+        fail("auth/login", response, "could not authenticate")
+        return False
+    try:
+        payload = response.json()
+    except Exception:
+        fail("auth/login", response, "not JSON")
+        return False
+    if not payload.get("ok"):
+        fail("auth/login", response, payload.get("error", "login failed"))
+        return False
+    ok("auth/login", response, f"role={payload.get('user', {}).get('role', '?')}")
+    return True
 
 
 def expect_ok(name, resp, key="ok"):
@@ -487,6 +506,10 @@ def main():
                         help="Base URL of Flask server")
     parser.add_argument("--skip-hw", action="store_true",
                         help="Skip hardware-dependent tests")
+    parser.add_argument("--username", default="admin",
+                        help="Panel login username")
+    parser.add_argument("--password", default="osdp",
+                        help="Panel login password")
     args = parser.parse_args()
 
     base = args.base.rstrip("/")
@@ -509,6 +532,9 @@ def main():
         sys.exit(1)
 
     print(f"{Colors.GREEN}Server reachable.{Colors.RESET}\n")
+
+    if not authenticate(base, args.username, args.password):
+        sys.exit(1)
 
     # Run all test groups
     connected = test_bridge(base, skip_hw)

@@ -41,6 +41,7 @@ This repo intentionally excludes companion folders that are out of scope for thi
 - [bootloader/src/main.cpp](bootloader/src/main.cpp): bootloader application entrypoint
 - [build-firmware.ps1](build-firmware.ps1): builds the STM32 app and exports a timestamped `.bin` into `firmware`
 - [flash-stlink.ps1](flash-stlink.ps1): builds and flashes the bootloader and app through ST-Link
+- [share-ngrok.ps1](share-ngrok.ps1): starts an `ngrok` tunnel for the local Flask panel and prints the public URL
 - [firmware/osdp-bridge-20260310-032700.bin](firmware/osdp-bridge-20260310-032700.bin): packaged firmware image for web-panel updates
 - [frontend/package.json](frontend/package.json): frontend dependencies and build scripts
 - [run.sh](run.sh): Linux and Raspberry Pi friendly local runner
@@ -74,6 +75,25 @@ chmod +x run.sh
 ```
 
 `run.sh` now creates a local virtual environment automatically, installs Python dependencies into `.venv`, builds the frontend, and starts Flask.
+
+## Web Panel Login
+
+The panel now uses two seeded web accounts stored in the `panel_users` collection:
+
+- `admin` / `osdp`: full control of bridge connect/disconnect, reader commands, enrollment, schedules, firmware upload, and terminal access
+- `demo` / `db2`: read-only viewer access for dashboard, live activity, events, access log, comms monitor, and system logs
+
+The `demo` account is intended for DB2 report demonstrations and teacher review, not for configuration work.
+
+## Public Sharing with ngrok
+
+If you want to expose the panel temporarily over the internet for a demo, start the Flask app locally and then run:
+
+```powershell
+.\share-ngrok.ps1
+```
+
+The script starts `ngrok http 5000`, waits for the local ngrok API on `http://127.0.0.1:4040`, and prints the public HTTPS URL. You can then sign in with `demo / db2` for a safe read-only walkthrough.
 
 ## Firmware Build and Flash
 

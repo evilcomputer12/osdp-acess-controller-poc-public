@@ -1,6 +1,6 @@
 """
 MongoDB models and helpers for the OSDP Access Control Panel.
-Collections: users, credentials, events, readers, access_log, schedules
+Collections: users, panel_users, credentials, events, readers, access_log, schedules
 """
 
 from datetime import datetime, timezone
@@ -17,6 +17,22 @@ DEFAULT_SCHEDULE = {
 }
 
 
+PANEL_USER_SEEDS = [
+    {
+        "username": "admin",
+        "role": "admin",
+        "display_name": "OSDP Administrator",
+        "password_hash": "scrypt:32768:8:1$il0dUn4F7AkWapaL$cee1e40fd6b8841cbc6734c75b995df26e7bbf57988b0d5c9dd3de74a6d4a0a0f8da27b725a4d9d0763bdb11b8e322321264998918201f29740aa29e707407ba",
+    },
+    {
+        "username": "demo",
+        "role": "viewer",
+        "display_name": "DB2 Demo Viewer",
+        "password_hash": "scrypt:32768:8:1$tFtKHzA0Mnuw3fFr$3beaabd087bceff6fa1707e8990b5ed254fff9300980bc7df8e5d37b64628d4ff6f77e1f95ce96850f883c3003576bce4b9cb0a6f40070daa14ae0792bfcaae6",
+    },
+]
+
+
 def get_db(uri="mongodb://localhost:27017"):
     client = MongoClient(uri, serverSelectionTimeoutMS=3000)
     db = client[DB_NAME]
@@ -26,6 +42,7 @@ def get_db(uri="mongodb://localhost:27017"):
 
 def _ensure_indexes(db):
     db.users.create_index("username", unique=True)
+    db.panel_users.create_index("username", unique=True)
     db.credentials.create_index("user_id")
     db.credentials.create_index("card_hex")
     db.events.create_index([("ts", DESCENDING)])
@@ -50,6 +67,22 @@ def _ensure_indexes(db):
                  "start": "08:00", "end": "18:00"}
             ],
         })
+    _seed_panel_users(db)
+
+
+def _seed_panel_users(db):
+    for user in PANEL_USER_SEEDS:
+        db.panel_users.update_one(
+            {"username": user["username"]},
+            {
+                "$setOnInsert": {
+                    **user,
+                    "active": True,
+                    "created": datetime.now(timezone.utc),
+                },
+            },
+            upsert=True,
+        )
 
 
 # ── Users ─────────────────────────────────────────────────────
@@ -84,6 +117,15 @@ def update_user(db, user_id, fields):
 
 def deactivate_user(db, user_id):
     return update_user(db, user_id, {"active": False})
+
+
+def get_panel_user_by_username(db, username):
+    return db.panel_users.find_one({"username": username})
+
+
+def list_panel_users(db, active_only=True):
+    filt = {"active": True} if active_only else {}
+    return list(db.panel_users.find(filt).sort("username", 1))
 
 
 # ── Credentials (cards / PINs) ────────────────────────────────

@@ -10,7 +10,7 @@ const COMMS_COLORS = {
   door: '#f80', sensor: '#f80', relay: '#f80', busy: '#f80', status: '#0af',
 };
 
-export default function CommsMonitor({ feed, setFeed }) {
+export default function CommsMonitor({ feed, setFeed, canDebug = true }) {
   const [autoScroll, setAutoScroll] = useState(true);
   const [hbTime, setHbTime] = useState('--');
   const [busTx, setBusTx] = useState(0);
@@ -69,12 +69,16 @@ export default function CommsMonitor({ feed, setFeed }) {
           <button className="btn btn-sm btn-outline-secondary" onClick={() => setFeed([])}>
             <i className="bi bi-trash"></i> Clear
           </button>
-          <button className="btn btn-sm btn-outline-info" onClick={() => api('/api/cmd/debug', 'POST', { on: true })}>
-            <i className="bi bi-bug"></i> Debug ON
-          </button>
-          <button className="btn btn-sm btn-outline-secondary" onClick={() => api('/api/cmd/debug', 'POST', { on: false })}>
-            Debug OFF
-          </button>
+          {canDebug && (
+            <>
+              <button className="btn btn-sm btn-outline-info" onClick={() => api('/api/cmd/debug', 'POST', { on: true })}>
+                <i className="bi bi-bug"></i> Debug ON
+              </button>
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => api('/api/cmd/debug', 'POST', { on: false })}>
+                Debug OFF
+              </button>
+            </>
+          )}
         </div>
       </div>
 

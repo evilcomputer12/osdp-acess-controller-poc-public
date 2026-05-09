@@ -8,10 +8,12 @@ import logging
 import threading
 import queue
 import time
+from functools import wraps
 from datetime import datetime, timezone
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, request, jsonify, send_from_directory, session
+from flask_socketio import SocketIO, emit, disconnect
+from werkzeug.security import check_password_hash
 
 from bridge import OsdpBridge
 from models import (
@@ -23,6 +25,7 @@ from models import (
     create_schedule, update_schedule, delete_schedule,
     check_schedule, check_reader_access,
     log_system, get_system_logs,
+    get_panel_user_by_username,
 )
 
 logging.basicConfig(level=logging.INFO,
@@ -35,7 +38,7 @@ app = Flask(__name__,
             static_folder=os.path.join(STATIC_DIR, "assets"),
             static_url_path="/assets",
             template_folder="templates")
-app.config["SECRET_KEY"] = os.urandom(24).hex()
+app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", os.urandom(24).hex())
 
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
 
@@ -73,6 +76,14 @@ _DB_LOG_TYPES = frozenset({
     "card", "keypad", "state", "pd_status", "pdid", "pdcap",
     "lstat", "nak", "error", "reconnected", "boot", "config",
     "sensor", "door", "relay", "com",
+})
+
+AUTH_EXEMPT_PATHS = frozenset({
+    "/api/auth/login",
+})
+
+ADMIN_ONLY_GET_PATHS = frozenset({
+    "/api/firmware/version",
 })
 
 
@@ -374,6 +385,83 @@ def _bridge_not_connected_response():
     return jsonify({"ok": False, "error": "bridge not connected"}), 503
 
 
+def _panel_user_payload(user_doc):
+    if not user_doc:
+        return None
+    return {
+        "username": user_doc.get("username"),
+        "role": user_doc.get("role", "viewer"),
+        "display_name": user_doc.get("display_name") or user_doc.get("username"),
+    }
+
+
+def _current_panel_user():
+    username = session.get("panel_username")
+    if not username:
+        return None
+    user_doc = get_panel_user_by_username(db, username)
+    if not user_doc or not user_doc.get("active", True):
+        session.clear()
+        return None
+    return user_doc
+
+
+def _auth_error(status_code, message):
+    return jsonify({"ok": False, "error": message}), status_code
+
+
+def _require_panel_login():
+    user_doc = _current_panel_user()
+    if not user_doc:
+        return None, _auth_error(401, "authentication required")
+    return user_doc, None
+
+
+def _require_panel_admin():
+    user_doc, response = _require_panel_login()
+    if response is not None:
+        return None, response
+    if user_doc.get("role") != "admin":
+        return None, _auth_error(403, "admin access required")
+    return user_doc, None
+
+
+def login_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        _, response = _require_panel_login()
+        if response is not None:
+            return response
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+@app.before_request
+def enforce_panel_authentication():
+    path = request.path.rstrip("/") or "/"
+    if request.method == "OPTIONS":
+        return None
+    if path in AUTH_EXEMPT_PATHS:
+        return None
+    if path == "/" or path.startswith("/assets/"):
+        return None
+    if path.startswith("/socket.io/"):
+        return None
+    if not path.startswith("/api/"):
+        return None
+
+    user_doc, response = _require_panel_login()
+    if response is not None:
+        return response
+
+    if path in ADMIN_ONLY_GET_PATHS or request.method in {"POST", "PUT", "DELETE", "PATCH"}:
+        if path == "/api/auth/logout":
+            return None
+        if user_doc.get("role") != "admin":
+            return _auth_error(403, "admin access required")
+    return None
+
+
 def _command_enqueued(command, sent, *, reader_index=None):
     if not bridge.connected:
         return _bridge_not_connected_response()
@@ -451,6 +539,38 @@ def _command_with_reader_followup(command, sender, *, reader_index, wait_seconds
 #  REST API
 # ══════════════════════════════════════════════════════════════
 
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
+    data = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+    user_doc = get_panel_user_by_username(db, username)
+    if not user_doc or not user_doc.get("active", True):
+        return _auth_error(401, "invalid username or password")
+    if not check_password_hash(user_doc.get("password_hash", ""), password):
+        return _auth_error(401, "invalid username or password")
+
+    session.clear()
+    session["panel_username"] = user_doc["username"]
+    session["panel_role"] = user_doc.get("role", "viewer")
+    log_system(db, "info", "auth", f"Panel login: {user_doc['username']}")
+    return jsonify({"ok": True, "user": _panel_user_payload(user_doc)})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_auth_logout():
+    user_doc = _current_panel_user()
+    if user_doc:
+        log_system(db, "info", "auth", f"Panel logout: {user_doc['username']}")
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auth/me")
+@login_required
+def api_auth_me():
+    return jsonify({"ok": True, "user": _panel_user_payload(_current_panel_user())})
+
 @app.route("/")
 def index():
     # Serve React SPA if build exists, otherwise fall back to legacy template
@@ -481,6 +601,7 @@ def catch_all(path):
 
 # ── Bridge control ────────────────────────────────────────────
 @app.route("/api/bridge/status")
+@login_required
 def bridge_status():
     port = OsdpBridge.find_port()
     return jsonify({
@@ -794,6 +915,7 @@ def api_delete_schedule(sid):
 
 # ── Events / Access log ──────────────────────────────────────
 @app.route("/api/events")
+@login_required
 def api_events():
     t = request.args.get("type")
     limit = int(request.args.get("limit", 200))
@@ -801,6 +923,7 @@ def api_events():
 
 
 @app.route("/api/access_log")
+@login_required
 def api_access_log():
     limit = int(request.args.get("limit", 200))
     return jsonify(_jsonable(get_access_log(db, limit)))
@@ -808,6 +931,7 @@ def api_access_log():
 
 # ── Readers ───────────────────────────────────────────────────
 @app.route("/api/readers")
+@login_required
 def api_readers():
     readers = []
     for reader in list_readers(db):
@@ -819,6 +943,7 @@ def api_readers():
 
 # ── System logs ───────────────────────────────────────────────
 @app.route("/api/system_logs")
+@login_required
 def api_system_logs():
     limit = int(request.args.get("limit", 500))
     level = request.args.get("level")
@@ -838,16 +963,27 @@ def cmd_debug():
 # ══════════════════════════════════════════════════════════════
 @socketio.on("connect")
 def ws_connect():
+    if _current_panel_user() is None:
+        disconnect()
+        return False
     emit("bridge_status", {
         "connected": bridge.connected,
         "port": bridge.port,
         "tx": bridge.tx_count,
         "rx": bridge.rx_count,
     })
+    emit("session", {"user": _panel_user_payload(_current_panel_user())})
 
 
 @socketio.on("send_cmd")
 def ws_send_cmd(data):
+    user_doc = _current_panel_user()
+    if user_doc is None:
+        disconnect()
+        return
+    if user_doc.get("role") != "admin":
+        emit("cmd_error", {"error": "admin access required"})
+        return
     cmd = data.get("cmd", "") if isinstance(data, dict) else str(data)
     bridge.send(cmd)
 

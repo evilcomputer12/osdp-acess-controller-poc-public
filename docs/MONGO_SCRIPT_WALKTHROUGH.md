@@ -26,16 +26,17 @@ The goal is to show that the whole database side of the project can be understoo
 The helper library provides all core database operations used by the project:
 
 1. collection creation and index setup
-2. default schedule seeding
-3. user CRUD
-4. credential CRUD for cards and PINs
-5. schedule CRUD
-6. reader state upserts and reads
-7. raw event logging and queries
-8. access log logging and queries
-9. system log logging and queries
-10. access evaluation helpers for card and PIN workflows
-11. reset and summary helpers
+2. default schedule and web-panel account seeding
+3. panel user listing for the Flask login layer
+4. user CRUD
+5. credential CRUD for cards and PINs
+6. schedule CRUD
+7. reader state upserts and reads
+8. raw event logging and queries
+9. access log logging and queries
+10. system log logging and queries
+11. access evaluation helpers for card and PIN workflows
+12. reset and summary helpers
 
 One important addition is that the library now supports a factory function:
 
@@ -68,25 +69,29 @@ The full raw transcript from the real run is stored in [docs/MONGO_SCRIPT_DEMO_O
 
 ### 1. Initialization Layer
 
-The library starts by defining the target collection set and the two default schedules used by the access-control logic. The `init()` function creates collections if needed, creates indexes, and seeds schedules. This mirrors the role of `_ensure_indexes()` from the Python backend, but it is now expressed directly in `mongosh`.
+The library starts by defining the target collection set, the two default schedules used by the access-control logic, and the fixed `panel_users` needed by the web login flow. The `init()` function creates collections if needed, creates indexes, and seeds schedules plus the demo/admin panel accounts. This mirrors the role of `_ensure_indexes()` from the Python backend, but it is now expressed directly in `mongosh`.
 
-### 2. User Layer
+### 2. Panel User Layer
+
+The `panel_users` collection stores the fixed web-panel accounts used by the Flask login screen. In this project they are seeded automatically as `admin` and `demo`, with roles `admin` and `viewer`. This collection is separate from access-control `users` because it models UI operators rather than cardholders.
+
+### 3. User Layer
 
 The user API models a person or operator with `username`, `full_name`, `role`, `active`, `allowed_readers`, `schedule`, and `created`. The design uses a soft-delete style through `deactivateUser()` and also exposes `deleteUser()` for hard deletion.
 
-### 3. Credential Layer
+### 4. Credential Layer
 
 Card and PIN credentials are stored in the `credentials` collection and reference users through `user_id`. The library normalizes card and PIN values to uppercase and derives `card_dec` from `card_hex` so the data matches the backend schema.
 
-### 4. Schedule Layer
+### 5. Schedule Layer
 
 Schedules are stored as named documents with embedded `periods`. The helper functions demonstrate create, read, update, delete, and also direct time evaluation through `checkSchedule()`.
 
-### 5. Reader Layer
+### 6. Reader Layer
 
 The `readers` collection is not append-only. It stores the latest known snapshot for each reader. That is why the library uses `upsertReader()` instead of inserting a new document every time state changes.
 
-### 6. Logging Layer
+### 7. Logging Layer
 
 The database keeps three different categories of operational data separate:
 
@@ -96,7 +101,7 @@ The database keeps three different categories of operational data separate:
 
 That separation is visible in the library design and also in the demo output.
 
-### 7. Access Evaluation Layer
+### 8. Access Evaluation Layer
 
 The most interesting part from an access-control perspective is the evaluation logic. The script shows that an access decision is not just a credential lookup. It also depends on:
 
@@ -124,6 +129,7 @@ This step proves that the demo database starts clean and that initialization cre
     "access_log",
     "credentials",
     "events",
+    "panel_users",
     "readers",
     "schedules",
     "system_logs",
@@ -131,6 +137,7 @@ This step proves that the demo database starts clean and that initialization cre
   ],
   "counts": {
     "users": 0,
+    "panel_users": 2,
     "credentials": 0,
     "events": 0,
     "access_log": 0,
@@ -140,6 +147,8 @@ This step proves that the demo database starts clean and that initialization cre
   }
 }
 ```
+
+The `panel_users` count is `2` immediately after initialization because the script seeds the fixed web accounts used by the Flask admin panel: `admin` and `demo`.
 
 ### Step 2: Create Users
 

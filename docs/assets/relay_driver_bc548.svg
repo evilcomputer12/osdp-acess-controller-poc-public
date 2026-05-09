@@ -1,72 +1,63 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
   <defs>
     <style>
-      .title { font: 700 30px Arial, sans-serif; fill: #1a202c; }
-      .label { font: 500 18px Arial, sans-serif; fill: #1a202c; }
-      .small { font: 400 15px Arial, sans-serif; fill: #2d3748; }
-      .wire { stroke: #1a202c; stroke-width: 3; fill: none; }
-      .part { stroke: #1a202c; stroke-width: 3; fill: #fff; }
-      .accent { fill: #fefcbf; stroke: #1a202c; stroke-width: 2; }
+      .wire { stroke: #4f81bd; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .symbol { stroke: #4f81bd; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .fill { fill: #4f81bd; stroke: #4f81bd; stroke-width: 3; }
+      .label { font: 500 30px Arial, sans-serif; fill: #000; }
+      .small { font: 400 24px Arial, sans-serif; fill: #000; }
+      .tiny { font: 400 20px Arial, sans-serif; fill: #000; }
     </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f81bd" />
+    </marker>
   </defs>
-  <rect width="1200" height="760" fill="#f7fafc"/>
-  <text x="50" y="55" class="title">BC548 Relay Driver Concept Used in Small Access-Control Prototypes</text>
 
-  <line x1="140" y1="140" x2="140" y2="640" class="wire"/>
-  <line x1="140" y1="140" x2="1060" y2="140" class="wire"/>
-  <text x="80" y="130" class="label">+12V</text>
+  <rect width="1200" height="760" fill="#ffffff"/>
 
-  <line x1="140" y1="640" x2="1060" y2="640" class="wire"/>
-  <text x="70" y="650" class="label">GND</text>
+  <path d="M 760 70 H 1070" class="wire"/>
+  <path d="M 700 170 V 610 H 180" class="wire"/>
+  <path d="M 180 610 H 1090" class="wire"/>
+  <path d="M 700 70 V 170" class="wire"/>
+  <path d="M 990 120 V 610" class="wire" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
 
-  <rect x="760" y="230" width="170" height="90" class="accent" rx="18" ry="18"/>
-  <text x="845" y="270" text-anchor="middle" class="label">Relay Coil</text>
-  <text x="845" y="295" text-anchor="middle" class="small">12V coil</text>
+  <text x="1080" y="88" class="label">+</text>
+  <text x="1085" y="628" class="label">−</text>
+  <text x="1015" y="380" class="small">12V</text>
 
-  <line x1="845" y1="140" x2="845" y2="230" class="wire"/>
-  <line x1="845" y1="320" x2="845" y2="390" class="wire"/>
+  <rect x="700" y="220" width="76" height="180" rx="4" ry="4" class="fill" opacity="0.92"/>
+  <text x="792" y="315" class="label">Relay</text>
 
-  <line x1="760" y1="205" x2="930" y2="205" class="wire"/>
-  <line x1="760" y1="205" x2="760" y2="165" class="wire"/>
-  <line x1="930" y1="205" x2="930" y2="165" class="wire"/>
-  <line x1="775" y1="165" x2="915" y2="165" class="wire"/>
-  <polygon points="840,180 865,165 865,195" fill="#1a202c"/>
-  <line x1="865" y1="165" x2="890" y2="165" class="wire"/>
-  <text x="945" y="175" class="small">1N4148 / 1N4007 flyback diode</text>
+  <path d="M 700 220 H 560" class="wire"/>
+  <path d="M 560 220 V 450 H 700" class="wire"/>
+  <path d="M 560 280 H 610" class="symbol"/>
+  <polygon points="560,330 610,250 660,330" class="fill"/>
+  <path d="M 610 250 V 210" class="symbol"/>
+  <path d="M 610 360 V 450" class="symbol"/>
+  <text x="120" y="260" class="small">1N4007 Flyback Diode</text>
 
-  <circle cx="560" cy="430" r="55" class="part"/>
-  <line x1="560" y1="375" x2="560" y2="320" class="wire"/>
-  <line x1="560" y1="485" x2="560" y2="640" class="wire"/>
-  <line x1="505" y1="430" x2="430" y2="430" class="wire"/>
-  <line x1="535" y1="410" x2="585" y2="385" class="wire"/>
-  <line x1="535" y1="450" x2="585" y2="475" class="wire"/>
-  <line x1="585" y1="385" x2="585" y2="360" class="wire"/>
-  <line x1="585" y1="475" x2="585" y2="500" class="wire"/>
-  <polygon points="575,448 597,470 568,472" fill="#1a202c"/>
-  <text x="560" y="442" text-anchor="middle" class="label">BC548</text>
-  <text x="620" y="360" class="small">Collector</text>
-  <text x="620" y="505" class="small">Emitter</text>
-  <text x="425" y="420" class="small">Base</text>
+  <circle cx="660" cy="520" r="96" class="symbol"/>
+  <path d="M 660 424 V 345" class="wire"/>
+  <path d="M 660 616 V 610" class="wire"/>
+  <path d="M 566 520 H 474" class="wire"/>
+  <path d="M 620 478 V 562" class="symbol"/>
+  <path d="M 620 494 H 680" class="symbol"/>
+  <path d="M 620 546 L 722 594" class="symbol"/>
+  <path d="M 620 500 L 720 444" class="symbol"/>
+  <path d="M 720 444 V 345" class="symbol"/>
+  <path d="M 722 594 V 610" class="symbol"/>
+  <polygon points="686,569 722,594 678,603" class="fill"/>
+  <text x="640" y="534" class="small">BC 548</text>
 
-  <line x1="585" y1="360" x2="845" y2="360" class="wire"/>
-  <line x1="845" y1="360" x2="845" y2="390" class="wire"/>
+  <rect x="320" y="490" width="126" height="52" rx="10" ry="10" class="fill" opacity="0.85"/>
+  <text x="366" y="470" class="tiny">1kΩ</text>
 
-  <rect x="240" y="380" width="120" height="100" class="accent" rx="12" ry="12"/>
-  <text x="300" y="420" text-anchor="middle" class="label">1kΩ</text>
-  <text x="300" y="448" text-anchor="middle" class="small">base resistor</text>
-  <line x1="360" y1="430" x2="430" y2="430" class="wire"/>
+  <text x="58" y="514" class="small">Blue Pill GPIO</text>
+  <path d="M 190 516 H 320" class="wire"/>
+  <path d="M 446 516 H 474" class="wire"/>
 
-  <rect x="80" y="380" width="120" height="100" class="accent" rx="12" ry="12"/>
-  <text x="140" y="420" text-anchor="middle" class="label">GPIO</text>
-  <text x="140" y="448" text-anchor="middle" class="small">STM32 / Pi control</text>
-  <line x1="200" y1="430" x2="240" y2="430" class="wire"/>
+  <text x="58" y="642" class="small">Blue Pill GND</text>
+  <path d="M 185 610 H 58" class="wire"/>
 
-  <rect x="790" y="500" width="200" height="80" class="accent" rx="14" ry="14"/>
-  <text x="890" y="535" text-anchor="middle" class="label">Relay Contacts</text>
-  <text x="890" y="560" text-anchor="middle" class="small">drive lock, buzzer, or test load</text>
-  <line x1="930" y1="275" x2="1030" y2="275" class="wire"/>
-  <line x1="1030" y1="275" x2="1030" y2="500" class="wire"/>
-
-  <text x="60" y="710" class="small">Why this matters in the project: the relay path turns low-current MCU logic into a safe on/off control signal for door-lock or test-bench hardware.</text>
-  <text x="60" y="735" class="small">The transistor protects the MCU from coil current, while the diode suppresses the inductive kick when the relay is released.</text>
+  <text x="60" y="706" class="tiny">The transistor switches the relay coil from a logic signal, while the flyback diode clamps the inductive kick when the coil is released.</text>
 </svg>

@@ -117,6 +117,27 @@ def nav_to(driver, page_name):
     time.sleep(0.8)
     drain_api_log(driver)  # discard page-load fetches
 
+
+def login(driver, username="admin", password="osdp"):
+    """Sign in through the login screen before running navigation tests."""
+    try:
+        user_input = WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//input[@autocomplete='username']"))
+        )
+        pass_input = driver.find_element(By.XPATH, "//input[@autocomplete='current-password']")
+        user_input.clear()
+        user_input.send_keys(username)
+        pass_input.clear()
+        pass_input.send_keys(password)
+        click(driver, "//button[@type='submit' and contains(.,'Sign in')]", timeout=5)
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//a[contains(@class,'nav-link') and contains(.,'Dashboard')]"))
+        )
+        ok("Login", f"signed in as {username}")
+    except Exception as exc:
+        fail("Login", str(exc)[:80])
+        raise
+
 def dismiss_alert(driver):
     """Dismiss any JS alert/confirm/prompt if present."""
     try:
@@ -479,6 +500,7 @@ def main():
     try:
         driver.get(BASE)
         time.sleep(2)
+        login(driver)
         inject_fetch_spy(driver)
         time.sleep(1)
 
