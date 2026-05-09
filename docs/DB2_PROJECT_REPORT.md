@@ -65,7 +65,8 @@ The project includes:
 5. a custom STM32 Blue Pill bridge firmware interface,
 6. hardware deployment on Raspberry Pi,
 7. backup and restore scripts,
-8. firmware update support for the STM32 bridge.
+8. firmware update support for the STM32 bridge,
+9. source code for the STM32 bridge firmware and USB bootloader.
 
 The project does not include:
 
@@ -74,7 +75,7 @@ The project does not include:
 3. multiple site management or sharding,
 4. biometric template storage,
 5. cloud synchronization,
-6. the full private bridge firmware source in this repository snapshot.
+6. the proprietary reader firmware used during testing.
 
 ## 1.4 Objectives
 
@@ -253,9 +254,9 @@ The STM32 Blue Pill acts as the protocol bridge. Its job is to sit between the R
 
 This design keeps the Python backend simpler. Instead of making Python deal with low-level frame timing and bus direction switching, those responsibilities stay inside the embedded firmware.
 
-## 4.3 What the Repository Python Code Reveals About Firmware Behavior
+## 4.3 What the Repository Firmware and Python Code Reveal About Bridge Behavior
 
-The full private bridge firmware source is not part of this repository, but its behavior is visible through the Python interface that is included here. [bridge.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bridge.py) shows the firmware command surface clearly. The backend sends commands such as:
+The repository now includes the STM32 bridge firmware source under [osdp-controller/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/main.cpp) and [osdp-controller/src/osdp_cp.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/osdp_cp.cpp), together with the USB bootloader under [bootloader/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bootloader/src/main.cpp). The Python bridge client in [bridge.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bridge.py) still provides the clearest host-side view of how the backend talks to the MCU. The backend sends commands such as:
 
 1. `PING`
 2. `STATUS`
@@ -994,11 +995,13 @@ Future work could include formal MongoDB schema validation, richer aggregation d
 10. [app.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/app.py), backend API and access policy implementation.
 11. [flasher.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/flasher.py), STM32 firmware flashing tool.
 12. [scripts/setup_raspberry_pi.sh](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/scripts/setup_raspberry_pi.sh), Raspberry Pi deployment workflow.
-13. Project GitHub repository: https://github.com/evilcomputer12/osdp-acess-controller-poc-public
-14. Farpointe Data. "What You Need to Know About OSDP." https://farpointedata.com/osdp/
-15. Wikimedia Commons. "Core Learning Board module / STM32 board photo." https://upload.wikimedia.org/wikipedia/commons/1/10/Core_Learning_Board_module_Arduino_STM32_F103_C8T6.jpg
-16. Wikimedia Commons. "LM2596 buck converter module photo." https://upload.wikimedia.org/wikipedia/commons/6/66/LM2596_buck_converter_module%2C_MP1584_buck_converter_module%2C_and_SDB628_boost_converter_module.jpg
-17. Wikimedia Commons. "Raspberry Pi family board photo." https://upload.wikimedia.org/wikipedia/commons/3/31/Raspberry_Pi_2_Model_B_v1.1_top_new_%28bg_cut_out%29.jpg
+13. [osdp-controller/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/main.cpp), STM32 bridge application entrypoint.
+14. [bootloader/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bootloader/src/main.cpp), STM32 bootloader entrypoint.
+15. Project GitHub repository: https://github.com/evilcomputer12/osdp-acess-controller-poc-public
+16. Farpointe Data. "What You Need to Know About OSDP." https://farpointedata.com/osdp/
+17. Wikimedia Commons. "Core Learning Board module / STM32 board photo." https://upload.wikimedia.org/wikipedia/commons/1/10/Core_Learning_Board_module_Arduino_STM32_F103_C8T6.jpg
+18. Wikimedia Commons. "LM2596 buck converter module photo." https://upload.wikimedia.org/wikipedia/commons/6/66/LM2596_buck_converter_module%2C_MP1584_buck_converter_module%2C_and_SDB628_boost_converter_module.jpg
+19. Wikimedia Commons. "Raspberry Pi family board photo." https://upload.wikimedia.org/wikipedia/commons/3/31/Raspberry_Pi_2_Model_B_v1.1_top_new_%28bg_cut_out%29.jpg
 
 # Appendix A: Important Files in the Project
 
@@ -1008,6 +1011,9 @@ Future work could include formal MongoDB schema validation, richer aggregation d
 | [bridge.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bridge.py) | Serial bridge client and event parser |
 | [models.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/models.py) | MongoDB model helpers |
 | [flasher.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/flasher.py) | STM32 bridge firmware updater |
+| [osdp-controller/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/main.cpp) | Main STM32 bridge firmware entrypoint |
+| [osdp-controller/src/osdp_cp.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/osdp_cp.cpp) | OSDP control-panel implementation on the MCU |
+| [bootloader/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bootloader/src/main.cpp) | STM32 USB bootloader entrypoint |
 | [backup_mongo.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/backup_mongo.py) | Database export tool |
 | [restore_mongo.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/restore_mongo.py) | Database import tool |
 | [run.sh](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/run.sh) | Linux build and run helper |

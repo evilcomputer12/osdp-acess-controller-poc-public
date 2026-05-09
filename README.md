@@ -2,7 +2,7 @@
 
 Project GitHub repository: https://github.com/evilcomputer12/osdp-acess-controller-poc-public
 
-This project is a proof-of-concept OSDP access controller built around a Flask and Socket.IO backend, a React frontend, a serial bridge to a Blue Pill OSDP controller, and a MongoDB data store. It manages readers, users, credentials, enrollment, access decisions, firmware updates, and live event monitoring.
+This project is a proof-of-concept OSDP access controller built around a Flask and Socket.IO backend, a React frontend, a serial bridge to a Blue Pill OSDP controller, STM32 bridge firmware and bootloader source trees, and a MongoDB data store. It manages readers, users, credentials, enrollment, access decisions, firmware updates, and live event monitoring.
 
 This repo intentionally excludes companion folders that are out of scope for this repository snapshot:
 
@@ -21,6 +21,8 @@ This repo intentionally excludes companion folders that are out of scope for thi
 
 - Backend: Flask + Flask-SocketIO in [app.py](app.py)
 - Serial bridge: Blue Pill USB bridge in [bridge.py](bridge.py)
+- MCU firmware: STM32 bridge firmware in [osdp-controller/platformio.ini](osdp-controller/platformio.ini)
+- MCU bootloader: STM32 USB bootloader in [bootloader/platformio.ini](bootloader/platformio.ini)
 - Data model: MongoDB helpers in [models.py](models.py)
 - Frontend: Vite + React in [frontend/package.json](frontend/package.json)
 - Backup/restore: [backup_mongo.py](backup_mongo.py) and [restore_mongo.py](restore_mongo.py)
@@ -31,6 +33,12 @@ This repo intentionally excludes companion folders that are out of scope for thi
 - [app.py](app.py): backend entrypoint and REST/Socket.IO API
 - [bridge.py](bridge.py): serial transport, command helpers, and event parser
 - [models.py](models.py): MongoDB schema helpers and access policy logic
+- [osdp-controller/platformio.ini](osdp-controller/platformio.ini): PlatformIO project for the STM32 OSDP bridge firmware
+- [osdp-controller/src/main.cpp](osdp-controller/src/main.cpp): main MCU bridge application entrypoint
+- [bootloader/platformio.ini](bootloader/platformio.ini): PlatformIO project for the STM32 USB bootloader
+- [bootloader/src/main.cpp](bootloader/src/main.cpp): bootloader application entrypoint
+- [bridge_app/.gitkeep](bridge_app/.gitkeep): placeholder directory for bridge firmware artifacts
+- [firmware/.gitkeep](firmware/.gitkeep): placeholder directory for packaged firmware artifacts
 - [frontend/package.json](frontend/package.json): frontend dependencies and build scripts
 - [run.sh](run.sh): Linux and Raspberry Pi friendly local runner
 - [backup_mongo.py](backup_mongo.py): database export to Extended JSON
