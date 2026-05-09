@@ -23,6 +23,8 @@ This repo intentionally excludes companion folders that are out of scope for thi
 - Serial bridge: Blue Pill USB bridge in [bridge.py](bridge.py)
 - MCU firmware: STM32 bridge firmware in [osdp-controller/platformio.ini](osdp-controller/platformio.ini)
 - MCU bootloader: STM32 USB bootloader in [bootloader/platformio.ini](bootloader/platformio.ini)
+- Firmware packaging: Windows helper in [build-firmware.ps1](build-firmware.ps1)
+- Firmware flashing: ST-Link helper in [flash-stlink.ps1](flash-stlink.ps1)
 - Data model: MongoDB helpers in [models.py](models.py)
 - Frontend: Vite + React in [frontend/package.json](frontend/package.json)
 - Backup/restore: [backup_mongo.py](backup_mongo.py) and [restore_mongo.py](restore_mongo.py)
@@ -37,8 +39,9 @@ This repo intentionally excludes companion folders that are out of scope for thi
 - [osdp-controller/src/main.cpp](osdp-controller/src/main.cpp): main MCU bridge application entrypoint
 - [bootloader/platformio.ini](bootloader/platformio.ini): PlatformIO project for the STM32 USB bootloader
 - [bootloader/src/main.cpp](bootloader/src/main.cpp): bootloader application entrypoint
-- [bridge_app/.gitkeep](bridge_app/.gitkeep): placeholder directory for bridge firmware artifacts
-- [firmware/.gitkeep](firmware/.gitkeep): placeholder directory for packaged firmware artifacts
+- [build-firmware.ps1](build-firmware.ps1): builds the STM32 app and exports a timestamped `.bin` into `firmware`
+- [flash-stlink.ps1](flash-stlink.ps1): builds and flashes the bootloader and app through ST-Link
+- [firmware/osdp-bridge-20260310-032700.bin](firmware/osdp-bridge-20260310-032700.bin): packaged firmware image for web-panel updates
 - [frontend/package.json](frontend/package.json): frontend dependencies and build scripts
 - [run.sh](run.sh): Linux and Raspberry Pi friendly local runner
 - [backup_mongo.py](backup_mongo.py): database export to Extended JSON
@@ -71,6 +74,22 @@ chmod +x run.sh
 ```
 
 `run.sh` now creates a local virtual environment automatically, installs Python dependencies into `.venv`, builds the frontend, and starts Flask.
+
+## Firmware Build and Flash
+
+Build a web-update firmware package on Windows:
+
+```powershell
+.\build-firmware.ps1
+```
+
+Flash the bootloader and application over ST-Link:
+
+```powershell
+.\flash-stlink.ps1
+```
+
+Use `.\flash-stlink.ps1 -BootloaderOnly` or `.\flash-stlink.ps1 -AppOnly` when you only want one stage.
 
 ## MongoDB Backup and Restore
 
