@@ -70,13 +70,37 @@ _enroll_state = {"active": False, "user_id": None, "mode": None}
 _pin_buffer = {}
 _pin_lock = threading.Lock()
 PIN_TIMEOUT_SEC = 5  # seconds to wait after last key before auto-submit
+ACCESS_GRANTED_RELAY_TIME = "T2000"
+
+# Bridge command queue decouples access decisions from USB writes.
+_bridge_command_queue = queue.Queue(maxsize=200)
+
+
+def _enqueue_bridge_command(label, fn):
+    try:
+        _bridge_command_queue.put_nowait((label, fn))
+        return True
+    except queue.Full:
+        log.warning("Bridge command queue full, dropping command: %s", label)
+        return False
+
+
+def _grant_access(reader):
+    _enqueue_bridge_command("grant_feedback", lambda: bridge.grant_feedback(reader))
+    # Send relay immediately after BUZ+LED — the firmware defers coil activation
+    # until the OSDP pipeline is idle (pendCount==0, guardMs elapsed, max 800ms cap).
+    _enqueue_bridge_command("relay_grant", lambda: bridge.relay(reader, ACCESS_GRANTED_RELAY_TIME))
+
+
+def _deny_access(reader):
+    _enqueue_bridge_command("deny_feedback", lambda: bridge.deny_feedback(reader))
 
 
 # Event types that are meaningful enough to persist in MongoDB
 _DB_LOG_TYPES = frozenset({
     "card", "keypad", "state", "pd_status", "pdid", "pdcap",
     "lstat", "nak", "error", "reconnected", "boot", "config",
-    "sensor", "door", "relay", "com",
+    "sensor", "door", "relay", "com", "fwversion",
 })
 
 AUTH_EXEMPT_PATHS = frozenset({
@@ -134,9 +158,9 @@ def _handle_event(ev):
         upsert_reader(db, ev["reader"], {
             "state": ev["state"], "last_seen": _coerce_event_ts(ev.get("ts")) or ev.get("ts"),
         })
-        # Auto-initiate secure channel when reader comes online
-        if ev["state"] == "ONLINE":
-            bridge.secure_channel(ev["reader"])
+        # SC auto-retry is handled entirely by the firmware (up to 6 attempts at
+        # SC_RETRY_INTERVAL_MS). Enqueueing SC here raced with the firmware's own
+        # CHLNG and caused double-handshake storms that prevented SC establishment.
 
     if ev_type == "pdid":
         upsert_reader(db, ev["reader"], {
@@ -171,7 +195,7 @@ def _process_card(ev):
         user = get_user(db, uid)
         name = user["username"] if user else "?"
         # Green + beep for enrollment success
-        bridge.grant_feedback(reader)
+        _enqueue_bridge_command("grant_feedback", lambda: bridge.grant_feedback(reader))
         socketio.emit("enroll_done", {
             "type": "card", "user": name, "hex": ev["hex"],
         }, namespace="/")
@@ -186,8 +210,7 @@ def _process_card(ev):
             log_access(db, card_hex=ev["hex"], user_id=str(cred["user_id"]),
                        username=name, granted=True, reader=reader,
                        reason=reason)
-            bridge.relay(reader, "T1500")
-            bridge.grant_feedback(reader)
+            _grant_access(reader)
             socketio.emit("access", {
                 "granted": True, "username": name, "method": "card",
                 "hex": ev["hex"], "reader": reader,
@@ -196,7 +219,7 @@ def _process_card(ev):
             log_access(db, card_hex=ev["hex"], user_id=str(cred["user_id"]),
                        username=name, granted=False, reader=reader,
                        reason=reason)
-            bridge.deny_feedback(reader)
+            _deny_access(reader)
             socketio.emit("access", {
                 "granted": False, "username": name, "method": "card",
                 "hex": ev["hex"], "reader": reader, "reason": reason,
@@ -204,7 +227,7 @@ def _process_card(ev):
     else:
         log_access(db, card_hex=ev["hex"], granted=False, reader=reader,
                    reason="unknown card")
-        bridge.deny_feedback(reader)
+        _deny_access(reader)
         socketio.emit("access", {
             "granted": False, "method": "card",
             "hex": ev["hex"], "reader": reader, "reason": "unknown card",
@@ -289,7 +312,7 @@ def _flush_pin(reader, pin_hex):
         _enroll_state["active"] = False
         user = get_user(db, uid)
         name = user["username"] if user else "?"
-        bridge.grant_feedback(reader)
+        _enqueue_bridge_command("grant_feedback", lambda: bridge.grant_feedback(reader))
         socketio.emit("enroll_done", {
             "type": "pin", "user": name, "hex": pin_hex,
         }, namespace="/")
@@ -304,8 +327,7 @@ def _flush_pin(reader, pin_hex):
             log_access(db, pin_hex=pin_hex, user_id=str(cred["user_id"]),
                        username=name, granted=True, reader=reader,
                        reason=reason)
-            bridge.relay(reader, "T1500")
-            bridge.grant_feedback(reader)
+            _grant_access(reader)
             socketio.emit("access", {
                 "granted": True, "username": name, "method": "pin",
                 "reader": reader,
@@ -314,7 +336,7 @@ def _flush_pin(reader, pin_hex):
             log_access(db, pin_hex=pin_hex, user_id=str(cred["user_id"]),
                        username=name, granted=False, reader=reader,
                        reason=reason)
-            bridge.deny_feedback(reader)
+            _deny_access(reader)
             socketio.emit("access", {
                 "granted": False, "username": name, "method": "pin",
                 "reader": reader, "reason": reason,
@@ -322,7 +344,7 @@ def _flush_pin(reader, pin_hex):
     else:
         log_access(db, pin_hex=pin_hex, granted=False, reader=reader,
                    reason="unknown pin")
-        bridge.deny_feedback(reader)
+        _deny_access(reader)
         socketio.emit("access", {
             "granted": False, "method": "pin", "reader": reader,
             "reason": "unknown pin",
@@ -809,6 +831,15 @@ def cmd_relay():
     )
 
 
+@app.route("/api/cmd/relay_gpio", methods=["POST"])
+def cmd_relay_gpio():
+    d = request.get_json(silent=True) or {}
+    return _command_enqueued(
+        "relay_gpio",
+        bridge.relay_gpio(d.get("enabled", True)),
+    )
+
+
 @app.route("/api/cmd/sensor", methods=["POST"])
 def cmd_sensor():
     return _command_enqueued("sensor", bridge.sensor_query())
@@ -1044,7 +1075,7 @@ def firmware_version():
     """Ask the MCU for its firmware version."""
     if not bridge.connected:
         return jsonify({"error": "Bridge not connected"}), 503
-    bridge.send("FWVERSION")
+    bridge.firmware_version()
     return jsonify({"ok": True, "note": "Version will arrive via event"})
 
 
@@ -1130,6 +1161,18 @@ if __name__ == "__main__":
 
     _worker = threading.Thread(target=_event_worker, daemon=True)
     _worker.start()
+
+    def _bridge_command_worker():
+        while True:
+            label, fn = _bridge_command_queue.get()
+            try:
+                if not fn():
+                    log.warning("Bridge command failed: %s", label)
+            except Exception as e:
+                log.error("Bridge command worker error on %s: %s", label, e)
+
+    _bridge_worker = threading.Thread(target=_bridge_command_worker, daemon=True)
+    _bridge_worker.start()
 
     bridge.connect()
     if bridge.connected:

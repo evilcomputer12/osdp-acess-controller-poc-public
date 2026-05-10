@@ -26,6 +26,7 @@
  *   BUZ <n> <tone> <on> <off> <cnt>  Buzzer
  *   OUT <n> <output> <code> <timer>   Output control
  *   RELAY <n> <0|1|Tms>           Set/pulse GPIO relay
+ *   RELAYGPIO <0|1>               Disable/enable physical relay GPIO drive
  *   SENSOR?                       Query sensor pins
  *   STATUS                        System status summary
  *   PING                          Keepalive
@@ -69,11 +70,21 @@
 #define NUM_RELAYS    2
 #define NUM_SENSORS   2
 
+static const uint32_t RELAY_OSDP_IDLE_GUARD_MS = 80;  // was 40 — wider guard after last reply
+static const uint32_t RELAY_DEFER_MAX_MS = 800;
+
 static const uint8_t relayPins[NUM_RELAYS] = {PIN_RELAY0, PIN_RELAY1};
 static const uint8_t sensorPins[NUM_SENSORS] = {PIN_SENSOR0, PIN_SENSOR1};
 static uint32_t relayPulseEnd[NUM_RELAYS] = {};
 static bool relayPulsing[NUM_RELAYS] = {};
+static bool relayState[NUM_RELAYS] = {};
+static bool relaySwitchPending[NUM_RELAYS] = {};
+static bool relayPendingState[NUM_RELAYS] = {};
+static bool relayPendingPulse[NUM_RELAYS] = {};
+static uint32_t relayPendingPulseMs[NUM_RELAYS] = {};
+static uint32_t relayPendingSinceMs[NUM_RELAYS] = {};
 static uint8_t lastSensor[NUM_SENSORS] = {};
+static bool relayGpioEnabled = true;
 
 OsdpCp osdp;
 char cmdBuf[512];
@@ -85,7 +96,7 @@ static uint32_t lastAutoStatus = 0;
 
 // Bootloader magic word -- written to BKP_DR1 before reset
 #define BL_MAGIC_WORD  0xB007U
-#define FW_VERSION     "1.2"
+#define FW_VERSION     "1.2.34"
 
 // ── IWDG (Independent Watchdog) ──────────────────────────────
 // The bootloader starts the IWDG before jumping here.  IWDG cannot be stopped,
@@ -111,14 +122,15 @@ static void onCard(uint8_t pi, const CardData *c) {
 static void onKeypad(uint8_t pi, const uint8_t *keys, uint8_t count) {
     if (count > 31) count = 31;  // prevent hex[64] buffer overflow
     // Deduplicate: OSDP readers re-report the same keypad data on every POLL
-    // until their internal buffer times out. Suppress identical data within 500ms.
+    // until their internal buffer times out. Keep the window short so repeated
+    // identical key presses are not swallowed as duplicates.
     static uint8_t lastKeys[32];
     static uint8_t lastCount = 0;
     static uint8_t lastPi = 0xFF;
     static uint32_t lastMs = 0;
     uint32_t now = millis();
     if (count == lastCount && pi == lastPi && count > 0 &&
-        (now - lastMs) < 500 && memcmp(keys, lastKeys, count) == 0) {
+        (now - lastMs) < 120 && memcmp(keys, lastKeys, count) == 0) {
         return;
     }
     memcpy(lastKeys, keys, count);
@@ -195,6 +207,7 @@ static void onReply(uint8_t pi, uint8_t code, const uint8_t *data, uint16_t dlen
 }
 
 static void onDebug(uint8_t pi, const char *msg) {
+    if (!verboseMode) return;
     usb->printf("!DBG %d %s\n", pi, msg);
 }
 
@@ -224,6 +237,19 @@ static int splitArgs(char *line, char **argv, int max) {
         if (*p) *p++ = 0;
     }
     return argc;
+}
+
+// ─── Relay output state machine ─────────────────────────────
+static void driveRelayPin(int n, bool on) {
+    if (relayGpioEnabled) digitalWrite(relayPins[n], on ? HIGH : LOW);
+}
+
+static void scheduleRelaySwitch(int n, bool on, bool pulse, uint32_t pulseMs) {
+    relayPendingState[n] = on;
+    relayPendingPulse[n] = pulse;
+    relayPendingPulseMs[n] = pulseMs;
+    relayPendingSinceMs[n] = millis();
+    relaySwitchPending[n] = true;
 }
 
 // ─── Handle one command line from PC ─────────────────────────────
@@ -297,18 +323,25 @@ static void handleCmd(char *line) {
         return;
     }
 
+    // RELAYGPIO <0|1> - diagnostics: keep logical relay events, bypass coil drive.
+    if (!strcmp(av[0], "RELAYGPIO") && ac >= 2) {
+        relayGpioEnabled = atoi(av[1]) != 0;
+        for (int i = 0; i < NUM_RELAYS; i++) {
+            digitalWrite(relayPins[i], relayGpioEnabled && relayState[i] ? HIGH : LOW);
+        }
+        usb->printf("OK relay_gpio=%d\n", relayGpioEnabled ? 1 : 0);
+        return;
+    }
+
     // RELAY <n> <0|1|Tms>
     if (!strcmp(av[0], "RELAY") && ac >= 3) {
         int n = atoi(av[1]);
         if (n < 0 || n >= NUM_RELAYS) { usb->println("ERR:BAD_RELAY"); return; }
         if (av[2][0] == 'T' || av[2][0] == 't') {
             uint32_t ms = atol(&av[2][1]);
-            digitalWrite(relayPins[n], HIGH);
-            relayPulseEnd[n] = millis() + ms;
-            relayPulsing[n] = true;
+            scheduleRelaySwitch(n, true, true, ms);
         } else {
-            digitalWrite(relayPins[n], av[2][0] == '1' ? HIGH : LOW);
-            relayPulsing[n] = false;
+            scheduleRelaySwitch(n, av[2][0] == '1', false, 0);
         }
         usb->println("OK");
         return;
@@ -397,8 +430,23 @@ static void checkSensors() {
 static void checkRelays() {
     uint32_t now = millis();
     for (int i = 0; i < NUM_RELAYS; i++) {
-        if (relayPulsing[i] && now >= relayPulseEnd[i]) {
-            digitalWrite(relayPins[i], LOW);
+        if (relaySwitchPending[i]) {
+            bool turningOn = relayPendingState[i];
+            bool canDefer = turningOn && i < osdp.numPd;
+            if (canDefer && !osdp.isReaderIdle(i, now, RELAY_OSDP_IDLE_GUARD_MS) &&
+                (now - relayPendingSinceMs[i]) < RELAY_DEFER_MAX_MS) {
+                continue;
+            }
+            relaySwitchPending[i] = false;
+            relayState[i] = relayPendingState[i];
+            driveRelayPin(i, relayState[i]);
+            relayPulsing[i] = relayPendingPulse[i];
+            if (relayPulsing[i]) relayPulseEnd[i] = now + relayPendingPulseMs[i];
+            usb->printf("!RELAY %d %d\n", i, relayState[i] ? 1 : 0);
+        }
+        if (relayPulsing[i] && (int32_t)(now - relayPulseEnd[i]) >= 0) {
+            relayState[i] = false;
+            driveRelayPin(i, false);
             relayPulsing[i] = false;
             usb->printf("!RELAY %d 0\n", i);
         }

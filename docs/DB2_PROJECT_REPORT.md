@@ -11,11 +11,11 @@ lang: "en-US"
 
 # Abstract
 
-This project presents the design and implementation of a MongoDB-backed proof of concept for an OSDP access controller and reader test bench. The system combines a Raspberry Pi 3B, a custom STM32 Blue Pill bridge, an RS-485 physical layer, relay-driving hardware, a Flask and Socket.IO backend, a React operator interface, and a MongoDB database named `osdp_access`. The database stores users, credentials, schedules, reader state, raw events, access decisions, and system diagnostics.
+This project's all about getting a proof-of-concept OSDP access controller off the ground, with MongoDB right at its core. I used real hardware - a Raspberry Pi 3B, my own STM32 Blue Pill bridge, RS-485 communication, relay-driving hardware, a Flask backend, and a React operator panel - all tied together through a MongoDB database named `osdp_access` and live Socket.IO updates. Every important piece of data, from users and credentials to schedules, hardware events, access decisions, and diagnostics, ends up in MongoDB.
 
-This project is suitable for the Databases II course because it uses MongoDB as a real NoSQL database in a nontrivial hardware-software system. Rather than being a purely academic CRUD exercise, it grew out of a practical engineering need: building a flexible controller that could be used to test readers during firmware development. The database was designed in parallel with the physical prototype, the bridge firmware, and the backend and frontend software.
+Forget textbook CRUD demos. This grew out of actual firmware development, where I needed a flexible controller for real reader hardware. The database, hardware, firmware, and both software layers all evolved together and kept influencing each other as the project moved forward.
 
-The report explains the project at three levels. First, it explains the access-control context, OSDP, and the physical prototype. Second, it explains the software architecture: STM32 bridge firmware behavior, backend API logic, frontend UI workflow, and Raspberry Pi deployment. Third, it explains the MongoDB data model in detail, including collections, document structure, indexing, embedding versus referencing decisions, representative queries, and backup and restore tooling. The report also includes annotated commands and code excerpts to show how the implementation works line by line.
+The report breaks the project into three main blocks. First, it gives context: what access controllers do, what OSDP is about, and how the prototype looks and works. Second, it dives into the software: STM32 firmware details, backend API flows, frontend logic, and deployment on the Raspberry Pi. Third, it zooms in on MongoDB: the collections, document structure, indexing choices, when to embed versus reference, example queries, plus backup and restore. I also included annotated code and command snippets wherever the implementation details mattered.
 
 Keywords: MongoDB, NoSQL, access control, OSDP, RS-485, STM32 Blue Pill, Raspberry Pi, PyMongo, audit logging, embedded systems
 
@@ -25,9 +25,9 @@ Keywords: MongoDB, NoSQL, access control, OSDP, RS-485, STM32 Blue Pill, Raspber
 
 ## 1.1 Background and Personal Motivation
 
-The idea for this project came directly from practical engineering work. I work as a firmware engineer on access-control readers, and I needed a flexible controller-side tool that could help me test readers during development. Instead of treating the Databases II project as something separate from that work, I used it as an opportunity to build something practical while also approaching it as a database design problem.
+This project came right out of what I do day to day. As a firmware engineer, I needed a real tool for testing access-control readers, not a sterile software mockup. Instead of separating the course project from actual engineering work, I used it to build something practical while learning more about MongoDB and NoSQL data modeling at the same time.
 
-At the same time, I was learning MongoDB and NoSQL data modeling. That made the project a useful setting for studying MongoDB through a controller platform instead of through a small isolated example. The project therefore became a combination of several parallel efforts:
+It turned into a multi-track effort that included:
 
 1. building the physical prototype on a breadboard and inside an enclosure,
 2. wiring and debugging the electronics,
@@ -36,11 +36,11 @@ At the same time, I was learning MongoDB and NoSQL data modeling. That made the 
 5. implementing the Flask backend and React frontend,
 6. deploying the final system on a Raspberry Pi.
 
-This was not only a software exercise. The prototype was physically assembled over two very intense days of soldering, drilling, filing, wiring, flashing firmware, and debugging communication problems. That practical build process influenced the database design because the database had to support operational questions coming from the hardware and the test setup.
+This was not just code. A lot of time went into soldering, drilling, wiring, flashing firmware, and hunting communication bugs. Each hardware step changed what I needed from the database, so real engineering decisions kept shaping what had to be tracked and how the data model had to work.
 
 ## 1.2 Problem Statement
 
-An access-control reader is only one side of the system. To test a reader correctly, an engineer also needs a controller-side environment that can:
+Testing a reader is not enough by itself. To test it properly, an engineer also needs the controller side of the system. A useful controller environment has to:
 
 1. communicate over the correct field bus,
 2. send and receive real protocol messages,
@@ -48,11 +48,11 @@ An access-control reader is only one side of the system. To test a reader correc
 4. record card and keypad events,
 5. keep audit logs of access attempts,
 6. provide a user interface for configuration and debugging,
-7. persist data in a database that supports both administrative records and high-volume event logs.
+7. persist both administrative records and high-volume operational logs.
 
-The problem is that these requirements naturally mix structured administrative data and semi-structured operational data. Users, credentials, and schedules are relatively stable. Reader state changes frequently. Raw hardware events are heterogeneous and append-heavy. Diagnostic logs are useful during debugging but do not fit neatly into a fixed relational table set unless the schema becomes verbose and rigid.
+Some of that data is stable, like users and credentials. Some of it changes constantly, like reader state and hardware event logs. Diagnostic logs are especially useful during debugging, but they do not fit neatly into a rigid relational structure without making the schema awkward and overly verbose.
 
-This project addresses that problem by using MongoDB as the persistence layer for a real OSDP controller proof of concept.
+That is why I used MongoDB as the persistence layer for this proof-of-concept controller.
 
 ## 1.3 Project Scope
 
@@ -62,11 +62,11 @@ The project includes:
 2. a Python backend built with Flask and Flask-SocketIO,
 3. a React frontend for operators,
 4. a thread-safe serial bridge client in Python,
-5. a custom STM32 Blue Pill bridge firmware interface,
+5. custom STM32 firmware,
 6. hardware deployment on Raspberry Pi,
 7. backup and restore scripts,
 8. firmware update support for the STM32 bridge,
-9. source code for the STM32 bridge firmware and USB bootloader.
+9. source code for the bridge firmware and USB bootloader.
 
 The project does not include:
 
@@ -81,18 +81,18 @@ The project does not include:
 
 The main objectives of this project are:
 
-1. Design a MongoDB schema that matches the access patterns of an access-control controller.
-2. Persist both stable administrative data and fast-changing field data.
-3. Support card and PIN workflows with clear audit logging.
-4. Track reader state separately from raw event history.
-5. Build a controller test bench for OSDP reader development.
-6. Connect embedded hardware work with a practical NoSQL database design.
-7. Demonstrate deployment, backup, restore, and field testing.
-8. Produce a course project report that explains both the database and the complete system around it.
+1. design a MongoDB schema that fits controller logic and access patterns,
+2. handle both stable administrative data and volatile field data,
+3. fully audit card and PIN usage,
+4. track reader state separately from event history,
+5. build a practical controller for OSDP reader development,
+6. tie real hardware to a meaningful NoSQL design,
+7. demonstrate deployment, backup, restore, and field testing,
+8. produce a report that explains both the database and the complete system around it.
 
 ## 1.5 Why This Project Belongs in Databases II
 
-The Databases II project allows a MongoDB or other NoSQL topic. This project fits that requirement well because the database is central to the platform. MongoDB is not used as an afterthought. It is used to model:
+Databases II allows MongoDB and other NoSQL topics. This project fits that well because MongoDB is not just tacked on at the end. It sits at the center of the system and models:
 
 1. users and credentials,
 2. schedules and access policy,
@@ -102,26 +102,26 @@ The Databases II project allows a MongoDB or other NoSQL topic. This project fit
 6. system diagnostics,
 7. operational backup and restore.
 
-The database design is driven by real runtime needs rather than hypothetical sample data. That makes the project a strong NoSQL case study.
+The design is driven by real runtime needs rather than by made-up sample data, which makes it a strong NoSQL case study.
 
 # 2. Access Control and OSDP Context
 
 ## 2.1 What an Access Controller Does
 
-In an access-control system, the reader is not the whole system. A reader is usually the field device placed near the door or gate. It reads a card, keypad input, or some other credential. The controller or control panel is the side that makes the final decision. It decides whether to grant or deny access, logs the attempt, and activates door hardware when needed.
+In access control, the reader sits at the door waiting for cards or PINs, but the controller is the part that decides who gets in, triggers locks and buzzers, logs every attempt, and keeps track of valid users, rules, and schedules.
 
-Conceptually, the controller has four responsibilities:
+Conceptually, the controller has four main responsibilities:
 
 1. communicate with one or more field devices,
 2. know which users and credentials are valid,
 3. apply business rules such as time schedules and allowed doors,
 4. generate output actions such as unlock relay, LED patterns, and buzzer feedback.
 
-This project implements that controller role as a proof of concept.
+That is exactly the controller role implemented in this proof of concept.
 
 ## 2.2 Why a Reader Test Controller Is Valuable
 
-When developing access-control readers, it is often not enough to test them with a limited desktop tool or a protocol sniffer. A firmware engineer also needs a controller-side environment that behaves like a real panel. That means:
+When you are developing readers, protocol sniffers or basic desktop tools are not enough. You need a controller that behaves like the real thing. That means:
 
 1. the reader can be polled,
 2. secure channel can be attempted,
@@ -130,13 +130,13 @@ When developing access-control readers, it is often not enough to test them with
 5. reader identification and capabilities can be requested,
 6. communication problems can be logged and analyzed.
 
-The idea behind this project was therefore not only academic. It was driven by the practical need for a reusable test controller during reader firmware development.
+This setup was important for the firmware side of the work because it gave me a reusable controller environment for reader development, not just an academic example.
 
 ## 2.3 What Is OSDP
 
-The Open Supervised Device Protocol, or OSDP, is an access-control communication standard maintained by the Security Industry Association. The SIA describes OSDP as an open standard that improves interoperability among access-control and security products and supports secure-channel operation with AES-128 protection. OSDP is used between a control panel and peripheral devices such as readers.
+OSDP, or Open Supervised Device Protocol, is an access-control standard from the Security Industry Association. It exists to make controller-reader communication open, interoperable, and more secure through features such as AES-128 secure channel. Compared with older interfaces, OSDP is bidirectional, lets you supervise devices, and supports richer control over a simple RS-485 link.
 
-In practical terms, OSDP gives the system several advantages over older one-way or lower-security interfaces:
+In practical terms, OSDP gives this project several advantages over older one-way interfaces:
 
 1. bidirectional communication,
 2. richer device control,
@@ -147,29 +147,29 @@ In practical terms, OSDP gives the system several advantages over older one-way 
 
 ![Industry-facing OSDP white paper cover used as a reference visual during documentation](assets/png/osdp_whitepaper_reference.png){ width=55% }
 
-As a supplementary visual reference during final documentation, I also used the Farpointe Data OSDP explainer page and white paper cover. That material is not part of the implementation itself, but it helped connect the report to the way OSDP is presented in current access-control industry practice.
+I used Farpointe Data reference material as supporting documentation while writing the report so the explanation stayed close to current industry presentation, even though those visuals were not part of the implementation itself.
 
 ## 2.4 OSDP Terms Used in This Project
 
 Several OSDP terms appear throughout this project:
 
-1. CP: Control Panel. In this project, the controller side is the Raspberry Pi plus the STM32 bridge.
-2. PD: Peripheral Device. In this project, the reader under test is the PD.
-3. RS-485: The differential physical layer used for field communication.
-4. Secure Channel: The OSDP encryption and authentication mode.
-5. SCBK: Secure Channel Base Key used to establish secure communication.
-6. COMSET: A command used to change communication settings.
-7. PDID and PDCAP: Identification and capability responses from the reader.
+1. CP: Control Panel. In this project, that means the Raspberry Pi plus the STM32 bridge.
+2. PD: Peripheral Device. In this project, that is the reader being tested.
+3. RS-485: The field bus used for communication.
+4. Secure Channel: The encrypted and authenticated OSDP mode.
+5. SCBK: The Secure Channel Base Key.
+6. COMSET: The command used to change communication settings.
+7. PDID and PDCAP: The reader's identification and capability responses.
 
 ## 2.5 Why OSDP Instead of Legacy Wiegand-Style Thinking
 
-OSDP is important because it supports real command and response behavior. A controller can ask the reader for identity, capabilities, or status. It can trigger LEDs, buzzers, and other functions. It can also attempt secure channel and supervise communication health. That makes OSDP much better for testing advanced reader behavior than a purely one-way credential output interface.
+OSDP matters because it is genuinely interactive. A controller can ask the reader for identity, capabilities, or status, can trigger outputs, can bring up secure channel, and can supervise the link. That makes it much more useful for testing advanced reader behavior than a simple one-way credential interface.
 
 # 3. Full System Overview
 
 ## 3.1 System Architecture
 
-The project is best understood as a full stack embedded-access-control system. The following figure shows the main runtime architecture.
+The easiest way to understand the project is to picture a full embedded access-control stack. The following figure shows the main runtime architecture.
 
 ![Full system architecture](assets/png/system_architecture.png){ width=95% }
 
@@ -181,15 +181,15 @@ The architecture has five major layers:
 4. the Raspberry Pi application stack,
 5. the MongoDB database and browser UI.
 
-The key idea is that Python does not generate raw OSDP frames directly. Instead, the STM32 firmware handles the field protocol and exposes a simpler text-based interface over USB CDC. The Flask backend sends commands such as `PING`, `STATUS`, `SC 0`, `LED 0 ...`, or `BUZ 0 ...`, and the STM32 bridge returns text events such as `!CARD`, `!KEYPAD`, `!PD`, and `!PDID`.
+Python does not generate raw OSDP frames directly. The STM32 bridge handles the field protocol and exposes a simple USB CDC text interface. Flask sends commands such as `PING`, `STATUS`, `SC 0`, `LED 0 ...`, and `BUZ 0 ...`, and the bridge sends back text events such as `!CARD`, `!KEYPAD`, `!PD`, and `!PDID`.
 
 ## 3.2 Hardware Stack and Prototype Build
 
-The hardware prototype is built from a Raspberry Pi 3B, an STM32 Blue Pill board, RS-485 transceiver hardware, power conversion hardware, and a relay-driving stage.
+The prototype uses real hardware: a Raspberry Pi 3B, an STM32 Blue Pill, an RS-485 transceiver, power hardware, and a relay-driving stage.
 
 ![Prototype hardware stack](assets/png/prototype_hardware_stack.png){ width=95% }
 
-The physical build process matters because the software was developed against the real prototype, not against a simulated environment. This affected many design decisions:
+The physical build process mattered because the software was built against the real prototype, not against a simulation. That changed a lot of design decisions:
 
 1. the backend had to survive USB reconnects,
 2. the database had to persist unstable field events for debugging,
@@ -198,11 +198,11 @@ The physical build process matters because the software was developed against th
 
 ## 3.3 RS-485 and MAX485-Style Interface
 
-OSDP is usually carried over RS-485. In this project, a MAX485-style transceiver module converts the STM32 UART signals into the differential A/B bus used by the reader.
+RS-485 is the field link in this setup. A MAX485-style transceiver converts STM32 UART traffic into the differential A/B bus used by the reader.
 
 ![MAX485 style RS-485 path](assets/png/max485_rs485.png){ width=90% }
 
-The RS-485 layer matters because it is where electrical communication becomes field communication. The STM32 firmware is responsible for:
+That layer matters because it is where board-level electrical communication becomes real field communication. The STM32 firmware is responsible for:
 
 1. controlling direction on the half-duplex bus,
 2. formatting OSDP frames at the protocol level,
@@ -211,28 +211,28 @@ The RS-485 layer matters because it is where electrical communication becomes fi
 
 ## 3.4 Relay Driver Stage with BC548
 
-Small embedded access-control prototypes often use a transistor stage to control a relay from logic-level outputs. The following figure shows the concept relevant to this project.
+The relay path uses a transistor stage because a microcontroller pin cannot drive a relay coil directly. The following figure shows the concept relevant to this project.
 
 ![BC548 relay driver concept](assets/png/relay_driver_bc548.png){ width=90% }
 
-The relay driver stage exists because a microcontroller output pin cannot safely drive a relay coil directly. The transistor provides current gain, and the flyback diode protects the circuit from the voltage spike generated when the relay turns off.
+The BC548 transistor handles the actual drive current, and the flyback diode protects the rest of the circuit from the relay's turn-off spike.
 
 ## 3.5 Visual Reference Notes
 
-I prepared the report using a combination of original technical diagrams and representative hardware reference photos. The relay, RS-485 path, prototype stack, and overall system architecture diagrams in this document are original. The embedded board and module photos are included as reference visuals for the classes of hardware used in the prototype. The following source pages were used for those reference images:
+I prepared the report using a mix of original diagrams and representative hardware reference photos. The relay, RS-485 path, prototype stack, and overall system architecture diagrams are original. The board and module photos are included only as representative visuals for the types of hardware used in the prototype. The following source pages were used for those reference images:
 
 1. STM32 Blue Pill style board image reference: [Wikimedia Commons board photo](https://upload.wikimedia.org/wikipedia/commons/1/10/Core_Learning_Board_module_Arduino_STM32_F103_C8T6.jpg)
 2. Buck converter module image reference: [Wikimedia Commons LM2596 module photo](https://upload.wikimedia.org/wikipedia/commons/6/66/LM2596_buck_converter_module%2C_MP1584_buck_converter_module%2C_and_SDB628_boost_converter_module.jpg)
 3. Raspberry Pi family board image reference: [Wikimedia Commons Raspberry Pi board photo](https://upload.wikimedia.org/wikipedia/commons/3/31/Raspberry_Pi_2_Model_B_v1.1_top_new_%28bg_cut_out%29.jpg)
 4. OSDP explainer and white paper reference: [Farpointe Data OSDP page](https://farpointedata.com/osdp/)
 
-The deployed system itself uses a Raspberry Pi 3B. The embedded Raspberry Pi image below is a representative family board photo rather than the exact photographed unit used in the prototype.
+The deployed system itself uses a Raspberry Pi 3B. The Raspberry Pi reference image in the report is representative of the board family, not a photo of the exact unit used in the prototype.
 
 # 4. Hardware and Firmware Design
 
 ## 4.1 Raspberry Pi 3B Role
 
-The Raspberry Pi 3B is the main application computer in the prototype. It runs:
+The Raspberry Pi is the main brain of the prototype. It runs:
 
 1. the Python backend,
 2. the built React frontend,
@@ -241,22 +241,22 @@ The Raspberry Pi 3B is the main application computer in the prototype. It runs:
 
 ![Representative Raspberry Pi family board used as a visual reference for the controller host](assets/png/raspberry_pi_reference.png){ width=72% }
 
-The Raspberry Pi was a useful choice because it is inexpensive, physically small, Linux-based, and realistic for a controller proof of concept.
+It was a practical choice because it is small, inexpensive, Linux-based, and realistic for a field-style controller proof of concept.
 
 ## 4.2 STM32 Blue Pill Role
 
-The STM32 Blue Pill acts as the protocol bridge. Its job is to sit between the Raspberry Pi and the reader and translate between two worlds:
+The STM32 Blue Pill acts as the bridge between the Raspberry Pi and the reader. Its job is to translate between two different worlds:
 
 1. the Raspberry Pi speaks high-level ASCII commands over USB CDC,
 2. the reader speaks OSDP over RS-485.
 
 ![Representative STM32 Blue Pill style development board used as a bridge hardware reference](assets/png/stm32_reference.png){ width=78% }
 
-This design keeps the Python backend simpler. Instead of making Python deal with low-level frame timing and bus direction switching, those responsibilities stay inside the embedded firmware.
+That keeps the Python backend much simpler, because low-level frame timing and bus direction switching stay inside the embedded firmware.
 
 ## 4.3 What the Repository Firmware and Python Code Reveal About Bridge Behavior
 
-The repository now includes the STM32 bridge firmware source under [osdp-controller/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/main.cpp) and [osdp-controller/src/osdp_cp.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/osdp_cp.cpp), together with the USB bootloader under [bootloader/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bootloader/src/main.cpp). The Python bridge client in [bridge.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bridge.py) still provides the clearest host-side view of how the backend talks to the MCU. The backend sends commands such as:
+The STM32 bridge firmware lives in [osdp-controller/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/main.cpp) and [osdp-controller/src/osdp_cp.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/osdp-controller/src/osdp_cp.cpp), while the USB bootloader lives in [bootloader/src/main.cpp](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bootloader/src/main.cpp). The Python client in [bridge.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/bridge.py) gives the clearest host-side picture of how the backend talks to the MCU. The backend sends commands such as:
 
 1. `PING`
 2. `STATUS`
@@ -281,7 +281,7 @@ The bridge then emits text events such as:
 8. `!NAK`
 9. `!COM`
 
-This already tells us the firmware has three major responsibilities:
+That shows the firmware has three major responsibilities:
 
 1. implement transport between USB CDC and RS-485,
 2. translate controller requests into OSDP operations,
@@ -289,28 +289,28 @@ This already tells us the firmware has three major responsibilities:
 
 ## 4.4 Firmware Update Path
 
-The project also supports firmware updating of the STM32 bridge through [flasher.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/flasher.py). The flashing logic reveals that the Blue Pill has a custom bootloader workflow:
+Firmware updates are handled through [flasher.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/flasher.py). The flashing logic shows that the Blue Pill uses a custom bootloader workflow:
 
 1. the application firmware can be asked to reboot into bootloader mode,
 2. the bootloader enumerates on a different USB PID,
 3. the host uploads firmware in small chunks,
 4. the bootloader erases flash, writes the new image, verifies CRC-32, and boots the application.
 
-That is a useful engineering feature because the controller prototype can be updated and improved without additional dedicated hardware every time.
+That makes the prototype much easier to improve because the controller can be updated without extra dedicated programming hardware every time.
 
 ## 4.5 Power Path and Buck Converter
 
-The buck converter is important because the prototype combines different voltage domains. A field-style power input such as 12V is common in access control, but the Raspberry Pi and logic circuits typically require 5V. A buck converter therefore steps the voltage down efficiently. Without that stage, the Pi cannot be powered reliably from the field-side supply.
+The power path matters because the prototype combines different voltage domains. A field-style 12V supply is common in access control, but the Raspberry Pi and the rest of the logic need 5V. The buck converter handles that step-down efficiently and keeps the system powered reliably.
 
 ![Representative LM2596-style buck converter module used as a power-path reference image](assets/png/buck_converter_reference.png){ width=58% }
 
 ## 4.6 Relay Path and Test-Bench Outputs
 
-The relay stage matters because access-control systems ultimately need to switch something in the physical world, such as a lock, strike, buzzer, or test load. Even in a test bench, this means the system can be evaluated with a physical output path rather than only as a passive logger.
+The relay stage matters because access-control systems ultimately have to switch something in the physical world, whether that is a lock, strike, buzzer, or test load. Even on a bench, it is useful to test real outputs instead of treating the controller as a passive logger.
 
 ## 4.7 Engineering Reality of the Prototype
 
-This part of the project was not only a database exercise, because the hardware and database evolved together during implementation. While building the box, wiring the boards, and dealing with USB, power, and serial problems, the design also had to address:
+This part of the project was never just a database exercise. The hardware and database kept evolving together during implementation. While building the enclosure, wiring the boards, and dealing with USB, power, and serial problems, the design also had to answer:
 
 1. what should be logged permanently,
 2. what belongs in raw event history versus current reader state,
@@ -322,27 +322,27 @@ This part of the project was not only a database exercise, because the hardware 
 
 ## 5.1 Backend Overview
 
-The backend is implemented in [app.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/app.py). It uses Flask for REST endpoints and Flask-SocketIO for real-time updates to the frontend. The backend has several responsibilities:
+The backend lives in [app.py](https://github.com/evilcomputer12/osdp-acess-controller-poc-public/blob/main/app.py). It uses Flask for REST endpoints and Flask-SocketIO for real-time updates to the frontend. The backend has several responsibilities:
 
 1. connect to MongoDB,
 2. authenticate web-panel operators through session-based login,
-2. connect to the serial bridge,
-3. receive events from the STM32,
-4. persist important events in MongoDB,
-5. apply access policy for cards and PINs,
-6. issue reader feedback commands,
-7. enforce admin-only write operations while allowing a read-only demo session,
-8. serve the built frontend.
+3. connect to the serial bridge,
+4. receive events from the STM32,
+5. persist important events in MongoDB,
+6. apply access policy for cards and PINs,
+7. issue reader feedback commands,
+8. enforce admin-only write operations while allowing a read-only demo session,
+9. serve the built frontend.
 
-The code currently exposes more than forty API routes, including routes for users, credentials, schedules, events, system logs, reader commands, firmware actions, and panel authentication.
+The code exposes more than forty API routes covering users, credentials, schedules, events, system logs, reader commands, firmware actions, and panel authentication.
 
 ## 5.2 Event Processing Strategy
 
-One of the most important backend design decisions is the use of an event queue between the serial thread and the business-logic path. The bridge thread pushes events into a queue, and a worker thread processes them. This matters because field communication can be bursty, and the database or UI layer must not block the serial read loop.
+One of the most important backend design decisions is the event queue between the serial thread and the business-logic path. The bridge thread pushes events into a queue, and a worker thread processes them. That keeps the serial loop fast even when field traffic becomes bursty.
 
 ## 5.3 Access Decision Path
 
-When a card arrives, the backend performs the following logic:
+When a card arrives, the backend follows this logic:
 
 1. persist the raw card event in `events`,
 2. check whether enrollment mode is active,
@@ -352,11 +352,11 @@ When a card arrives, the backend performs the following logic:
 6. write a result to `access_log`,
 7. command relay, LED, and buzzer feedback.
 
-The same policy idea applies to PINs, except the digits first pass through a small keypad accumulation buffer before the final credential lookup.
+The PIN workflow is similar, except the digits first pass through a small keypad buffer before the final credential lookup.
 
 ## 5.4 Reader State Tracking
 
-The backend separates historical event logging from current reader state. Instead of reading the current state from the raw event stream every time, the application keeps the `readers` collection updated via upserts. This makes the dashboard and diagnostics pages much faster and easier to implement.
+The backend keeps historical event logging separate from current reader state. Instead of rebuilding the latest state from the raw event stream every time, the application updates the `readers` collection through upserts. That keeps the dashboard and diagnostics pages fast.
 
 ## 5.5 Frontend Overview
 
@@ -375,7 +375,9 @@ The frontend is built with React and Vite. [frontend/src/App.jsx](https://github
 11. Terminal
 12. Firmware Update
 
-The panel now starts with a login screen and two seeded web accounts. `admin / osdp` has full control of the system, while `demo / db2` is restricted to a read-only activity view intended for course demonstration and teacher access. For better operational hygiene, the frontend no longer exposes preset buttons or inline default credentials, and the admin Users page can now either rotate a panel password or reset a seeded account back to its default. This also shows that the database is part of a working management interface rather than a standalone schema.
+The panel starts with a login screen and two seeded web accounts. `admin / osdp` has full control, while `demo / db2` is limited to a read-only course-demonstration view. The frontend no longer exposes insecure preset buttons or inline credentials, and the admin Users page can rotate or reset panel account passwords. That shows the database is not just a backend schema; it powers a real management interface.
+
+Appendix G walks through the hardware and the web interface visually.
 
 # 6. MongoDB Database Design
 
@@ -2631,3 +2633,201 @@ Loaded osdpAccess Mongo helpers. Run osdpAccess.help() for usage.
   }
 }
 ```
+
+# Appendix G: Prototype Hardware Photos and Web UI Walkthrough
+
+This appendix merges the material from `docs/ui-testing/ui-walkthrough.md` into the main Databases II project report so the course submission has one combined Markdown source for both the database report and the visual walkthrough.
+
+## G.1 Hardware Photos
+
+These photos show the current prototype as an open bench build rather than a finished enclosure. The visible wiring, relay board, Raspberry Pi, keypad reader, and breakout board are useful context when reading the transport, relay, and power-related discussion in the earlier chapters.
+
+### G.1.1 Hardware Overview With Keypad Attached
+
+![Hardware overview with keypad](viber_image_2026-05-09_22-44-11-115.jpg)
+
+This is the clearest top-down overview of the full test assembly. It shows the open metal enclosure, Raspberry Pi mounted inside the box, STM32 Blue Pill controller plus relay board, side terminal board, and the external keypad reader connected on the right. Use this image as the main reference for the physical test setup when discussing wiring or hardware-induced communication problems.
+
+### G.1.2 Internal Layout And Wiring Density
+
+![Internal layout and wiring density](viber_image_2026-05-09_22-44-11-183.jpg)
+
+This photo focuses on the inside of the enclosure and makes the wiring density more obvious. It is useful when describing why the prototype is still susceptible to bench noise, ground-routing issues, relay interference, or layout-related problems. It also shows the Raspberry Pi and controller board sharing space inside a conductive enclosure with short internal runs and improvised harnessing.
+
+### G.1.3 Angled View Of Enclosure, Terminal Block, And Keypad
+
+![Angled view of enclosure and keypad](viber_image_2026-05-09_22-44-11-335.jpg)
+
+This angle helps explain how the enclosure, external connector area, and keypad are physically arranged on the desk during testing. It is a useful image for documenting cable exits, field wiring direction, and why mechanical layout may still be part of the debugging story.
+
+### G.1.4 Close View Of Internal Components
+
+![Close internal component view](viber_image_2026-05-09_22-44-11-359.jpg)
+
+This is the most component-focused photo of the internal build. It gives a clearer view of the Blue Pill controller board, the relay module, the Raspberry Pi, and the side board used for termination or interface wiring. Use it when describing the internal relationship between the control electronics and the relay path.
+
+### G.1.5 Bench Context And Cooling Experiment
+
+![Bench context and cooling experiment](viber_image_2026-05-09_22-44-11-383.jpg)
+
+This wide shot captures the full bench context: the enclosure, keypad, nearby router, and the external fan placed beside the setup. It is useful as a documentation image because it shows that the prototype is being tested in an ad hoc lab environment rather than a fixed installation, which matters when discussing repeatability, EMI, wiring stability, and temporary cooling or isolation experiments.
+
+## G.2 Web UI Walkthrough
+
+The following screenshots were captured from the live application at `http://osdp.local:5000` while signed in as an admin user. Red squares mark the important tabs, buttons, or controls. The numbered lists under each screenshot explain what each marked item means and what it is used for during functional UI testing.
+
+### G.2.1 Overview Navigation
+
+![Overview navigation](ui-testing/images/01-overview-navigation.png)
+
+1. `Dashboard`: Summary view for readers, users, controller traffic, uptime, and recent events.
+2. `Readers`: Reader inventory and direct status or action commands.
+3. `Users`: User records and panel login account management.
+4. `Enrollment`: Card and PIN enrollment workflow.
+5. `Schedules`: Time windows used by access-control rules.
+6. `Events`: Raw event log browser.
+7. `Access Log`: Access decision history with refresh support.
+8. `Reader Config`: Direct configuration and command console for a selected reader.
+9. `Comms Monitor`: Live transport and debug stream with debug toggles.
+10. `System Logs`: Backend or system-level operational log view.
+11. `Terminal`: Raw command entry against the controller or bridge.
+12. `Firmware`: Firmware upload and flash workflow.
+13. `Connect` or `Disconnect`: Opens or closes the bridge connection between the panel app and the controller.
+14. `Logout`: Ends the authenticated admin session.
+
+### G.2.2 Dashboard
+
+![Dashboard](ui-testing/images/02-dashboard.png)
+
+1. `Dashboard` heading: Confirms the active tab and page context.
+2. `Readers`: High-level count of configured readers.
+3. `Users`: High-level count of configured user records.
+4. `Uptime`: Shows panel or backend uptime for quick health checks.
+5. `Live Event Feed`: Real-time event stream used to validate card reads, relays, keypad traffic, and state changes.
+
+Testing focus: confirm counts update, uptime is present, and live events move when the controller is active.
+
+### G.2.3 Readers
+
+![Readers](ui-testing/images/03-readers.png)
+
+1. `Refresh Status`: Reloads current reader state without leaving the page.
+2. `Add Reader`: Starts the workflow for registering another reader.
+3. `ID`: Requests reader identity information.
+4. `CAP`: Requests the reader capability table.
+5. `LSTAT`: Requests local status such as tamper and power state.
+6. `ISTAT`: Requests input status.
+7. `OSTAT`: Requests output status.
+8. `Secure`: Initiates secure-channel setup with the selected reader.
+
+Testing focus: each command should produce visible feedback, status changes, or log output without hanging the page.
+
+### G.2.4 Users
+
+![Users](ui-testing/images/04-users.png)
+
+1. `New User`: Creates a new access-control user.
+2. `Change Password`: Changes the selected panel account password.
+3. `Reset to Default`: Resets a panel account back to its seeded default password.
+
+Testing focus: dialogs or forms should open correctly, validation should be clear, and account changes should persist after refresh.
+
+### G.2.5 Enrollment
+
+![Enrollment](ui-testing/images/05-enrollment.png)
+
+1. `Scan Next Card`: Arms the page to capture the next presented card.
+2. `Enroll Card`: Saves the currently captured or manually entered card data.
+3. `Capture Next PIN`: Arms the page to capture the next keypad PIN sequence.
+4. `Enroll PIN`: Saves the currently captured or manually entered PIN data.
+5. Manual card field: Used to type a card value directly when testing without a live swipe.
+6. Manual PIN field: Used to type keypad data directly in hex form.
+
+Testing focus: scan or capture should populate fields, cancel paths should reset state, and manual entry should validate format cleanly.
+
+### G.2.6 Schedules
+
+![Schedules](ui-testing/images/06-schedules.png)
+
+1. `New Schedule`: Creates another schedule record.
+2. `24/7`: Example always-on schedule card.
+3. `Weekdays 8-18`: Example limited-hours schedule card.
+
+Testing focus: schedule cards should render correctly, edits should be discoverable, and creating a new schedule should not disturb existing entries.
+
+### G.2.7 Events
+
+![Events](ui-testing/images/07-events.png)
+
+1. `Events Log`: Main page title for the raw event history view.
+2. Filter selector: Narrows the event stream by type or category.
+
+Testing focus: filter changes should immediately affect the displayed log without breaking pagination or layout.
+
+### G.2.8 Access Log
+
+![Access Log](ui-testing/images/08-access-log.png)
+
+1. `Access Log`: Page title for grant or deny history.
+2. `Refresh`: Reloads the latest access decisions.
+
+Testing focus: refresh should show new swipes and decisions, and timestamps or usernames should remain aligned after reload.
+
+### G.2.9 Reader Config
+
+![Reader Config](ui-testing/images/09-reader-config.png)
+
+1. `Send LED`: Sends a direct LED command to the reader.
+2. `Send Buzzer`: Sends a direct buzzer command.
+3. `Set COM`: Pushes communication settings such as address or baud.
+4. `Set Key`: Programs or updates the reader key material.
+5. `Relay`: Sends a relay or output command.
+
+Testing focus: each command should produce either a visible hardware effect or an immediate result in the comms monitor. This page is the fastest place to test direct reader actions.
+
+### G.2.10 Comms Monitor
+
+![Comms Monitor](ui-testing/images/10-comms-monitor.png)
+
+1. `Clear`: Clears the visible monitor output.
+2. `Debug ON`: Enables verbose controller debug traffic.
+3. `Debug OFF`: Disables verbose controller debug traffic.
+4. Checkbox filter: Toggles an additional filtering option for the live monitor stream.
+
+Testing focus: debug toggles should take effect immediately and the monitor should remain readable during heavy traffic.
+
+### G.2.11 System Logs
+
+![System Logs](ui-testing/images/11-system-logs.png)
+
+1. `Refresh`: Reloads system log entries.
+2. Filter selector: Narrows logs by severity or type.
+
+Testing focus: refresh and filtering should work without duplicating entries or freezing the page.
+
+### G.2.12 Terminal
+
+![Terminal](ui-testing/images/12-terminal.png)
+
+1. Command input: Freeform raw command entry field.
+2. `Send`: Submits the typed raw command to the controller or bridge.
+
+Testing focus: commands should echo clearly, errors should be visible, and the terminal should not allow accidental invisible failures.
+
+### G.2.13 Firmware
+
+![Firmware](ui-testing/images/13-firmware.png)
+
+1. `Choose File`: Opens the file picker for a compiled firmware `.bin` image.
+2. `Flash`: Starts the firmware upload once a file has been selected.
+3. `How it works`: Reference panel that explains the bootloader and flash process.
+
+Testing focus: invalid files should be rejected, progress should be visible during upload, and recovery instructions should remain understandable if flashing fails.
+
+### G.2.14 Suggested UI Test Pass
+
+1. Verify login, bridge connect or disconnect, and logout behavior from the shell controls.
+2. Visit every sidebar tab and confirm the heading matches the selected tab.
+3. Exercise at least one action button on Readers, Enrollment, Reader Config, Comms Monitor, Terminal, and Firmware.
+4. Confirm that log-style pages update without layout breakage: Dashboard, Events, Access Log, System Logs, and Comms Monitor.
+5. Check that empty states, disabled buttons, and invalid input handling are understandable to an admin user.

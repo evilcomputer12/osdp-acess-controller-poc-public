@@ -58,16 +58,21 @@
 #define SCS_18 0x18
 
 // Timing
-#define REPLY_TIMEOUT_MS  200
-#define POLL_INTERVAL_MS  50
-#define SC_RETRY_INTERVAL_MS  5000
-#define RX_STALE_TIMEOUT_MS   500
+#define REPLY_TIMEOUT_MS        500   // was 400 — reader can take 400-450ms
+#define POLL_INTERVAL_MS         50
+#define SC_RETRY_INTERVAL_MS   2500   // was 1500 — less aggressive auto-retry
+#define RX_STALE_TIMEOUT_MS     600   // was 500
+#define TX_RECOVERY_BACKOFF_MS   80   // was 60 — short: reader times out if gap >200ms
+#define SC_NAK_BACKOFF_MS       100   // after NAK4 seq-reset: brief settle, not 400ms
+#define SC_INIT_TIMEOUT_MS     5000   // dedicated SC handshake window (CHLNG→RMACI)
+#define MAX_TX_RETRIES            6   // was 8 — slightly faster offline detection
+#define MAX_PARSE_FAILS          10
 
 // Limits - bridge only needs 2 readers max
 #define MAX_READERS      2
 #define MAX_CARD_BYTES   16
 #define MAX_BIO_BYTES    200
-#define MAX_PENDING_CMDS 4
+#define MAX_PENDING_CMDS 16
 
 static const uint8_t SCBK_DEFAULT[16] = {
     0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,
@@ -121,6 +126,8 @@ struct PdCtx {
     uint32_t lastPollMs, lastReplyMs;
     uint8_t retryCount;
     uint8_t parseFails;
+    uint8_t lastCmd;
+    uint32_t nextTxAllowedMs;
     uint8_t scRetries;
     uint32_t lastScAttemptMs;
     bool hadSc;

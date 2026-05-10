@@ -1,6 +1,25 @@
 #include "osdp_cp.h"
 #include "osdp_crypto.h"
 
+static const char *cmdName(uint8_t cmd) {
+    switch (cmd) {
+    case CMD_POLL: return "POLL";
+    case CMD_ID: return "ID";
+    case CMD_CAP: return "CAP";
+    case CMD_LSTAT: return "LSTAT";
+    case CMD_ISTAT: return "ISTAT";
+    case CMD_OSTAT: return "OSTAT";
+    case CMD_LED: return "LED";
+    case CMD_BUZ: return "BUZ";
+    case CMD_OUT: return "OUT";
+    case CMD_COMSET: return "COMSET";
+    case CMD_KEYSET: return "KEYSET";
+    case CMD_CHLNG: return "CHLNG";
+    case CMD_SCRYPT: return "SCRYPT";
+    default: return "CMD?";
+    }
+}
+
 void OsdpCp::begin(HardwareSerial *ser, int de, long baud) {
     serial = ser; dePin = de;
     if (dePin >= 0) { pinMode(dePin, OUTPUT); digitalWrite(dePin, LOW); }
@@ -19,11 +38,11 @@ int OsdpCp::addPd(uint8_t addr, const uint8_t *scbk) {
 void OsdpCp::txRaw(const uint8_t *data, uint16_t len) {
     if (!serial) return;
     if (dePin >= 0) digitalWrite(dePin, HIGH);
-    delayMicroseconds(200);
+    delayMicroseconds(500);   // was 200 — MAX485 DE propagation + line settle
     serial->write(OSDP_MARK);
     serial->write(data, len);
     serial->flush();
-    delayMicroseconds(200);
+    delayMicroseconds(500);   // was 200 — last bit out before DE drops
     if (dePin >= 0) digitalWrite(dePin, LOW);
     busTxCount++;
 }
@@ -87,19 +106,28 @@ void OsdpCp::sendCmd(PdCtx *p, uint8_t cmd, const uint8_t *data, uint16_t dlen) 
     if (p->scActive) sc = (cmd == CMD_POLL) ? SCS_15 : SCS_17;
     int n = buildPkt(p, cmd, data, dlen, sc);
     if (n > 0) txRaw(txBuf, n);
+    p->lastCmd = cmd;
     p->lastPollMs = millis(); advanceSeq(p);
 }
 
 void OsdpCp::queueCmd(uint8_t i, uint8_t cmd, const uint8_t *data, uint16_t dlen) {
     if (i >= numPd) return;
     PdCtx *p = &pd[i];
-    if (p->pendCount < MAX_PENDING_CMDS) {
-        PendingCmd *s = &p->pend[p->pendTail];
-        s->cmd = cmd; s->len = (dlen > 64) ? 64 : dlen;
-        if (data && dlen) memcpy(s->data, data, s->len);
-        p->pendTail = (p->pendTail + 1) % MAX_PENDING_CMDS;
-        p->pendCount++;
+    if (p->pendCount >= MAX_PENDING_CMDS) {
+        if (onDebug) {
+            char dbg[56];
+            snprintf(dbg, sizeof(dbg), "QUEUE_FULL: drop oldest cmd=0x%02X", p->pend[p->pendHead].cmd);
+            onDebug(i, dbg);
+        }
+        p->pendHead = (p->pendHead + 1) % MAX_PENDING_CMDS;
+        p->pendCount--;
     }
+    PendingCmd *s = &p->pend[p->pendTail];
+    s->cmd = cmd;
+    s->len = (dlen > sizeof(s->data)) ? sizeof(s->data) : dlen;
+    if (data && s->len) memcpy(s->data, data, s->len);
+    p->pendTail = (p->pendTail + 1) % MAX_PENDING_CMDS;
+    p->pendCount++;
 }
 
 void OsdpCp::startSecureChannel(PdCtx *p) {
@@ -146,6 +174,16 @@ void OsdpCp::initSecureChannel(uint8_t i) {
     queueCmd(i, CMD_CHLNG);
 }
 
+bool OsdpCp::isReaderIdle(uint8_t i, uint32_t now, uint32_t guardMs) const {
+    if (i >= numPd) return true;
+    const PdCtx *p = &pd[i];
+    bool waitingForReply = (p->lastPollMs != 0) &&
+                           (p->lastReplyMs == 0 || p->lastPollMs > p->lastReplyMs);
+    if (p->state == PD_SC_INIT || waitingForReply || p->pendCount) return false;
+    if (guardMs && p->lastReplyMs != 0 && (now - p->lastReplyMs) < guardMs) return false;
+    return true;
+}
+
 void OsdpCp::sendBioRead(uint8_t i, uint8_t reader, uint8_t type, uint8_t format, uint8_t quality) {
     uint8_t d[4]={reader,type,format,quality};
     queueCmd(i, CMD_BIOREAD, d, 4);
@@ -168,11 +206,17 @@ void OsdpCp::processReply(uint8_t pi, uint8_t code, const uint8_t *data, uint16_
     if (onReply) onReply(pi, code, data, dlen);
     switch (code) {
     case REP_ACK:
+        if (onDebug) {
+            char d[48];
+            snprintf(d, sizeof(d), "ACK: cmd=%s", cmdName(p->lastCmd));
+            onDebug(pi, d);
+        }
         if(p->state==PD_OFFLINE){
             p->state=PD_ONLINE;
             p->scRetries=0; p->lastScAttemptMs=0;
+            p->seq=0; // reader likely reset seq tracking while offline; resync both sides
             if(onStatus)onStatus(pi,p->state);
-            if(onDebug)onDebug(pi,"PD_ONLINE: reader responded, will auto-SC");
+            if(onDebug)onDebug(pi,"PD_ONLINE: reader responded, seq reset, will auto-SC");
         }
         if(p->state==PD_SC_INIT){
             p->state=PD_ONLINE;
@@ -181,8 +225,23 @@ void OsdpCp::processReply(uint8_t pi, uint8_t code, const uint8_t *data, uint16_
         break;
     case REP_NAK:
         if(dlen>0 && data[0]==4){
-            p->seq = 0; // reset seq on sequence error
-            if(onDebug) onDebug(pi,"SEQ_RESET: NAK seq error, resetting to 0");
+            p->seq = 0;
+            p->nextTxAllowedMs = millis() + SC_NAK_BACKOFF_MS;
+            if(onDebug) {
+                char d[80];
+                snprintf(d, sizeof(d), "SEQ_RESET: NAK seq error after %s, resetting to 0",
+                         cmdName(p->lastCmd));
+                onDebug(pi, d);
+            }
+        } else {
+            // NAK 1 (bad CRC) or other: brief settle before retrying
+            p->nextTxAllowedMs = millis() + TX_RECOVERY_BACKOFF_MS;
+        }
+        if(onDebug){
+            char d[64];
+            uint8_t ne = dlen>0 ? data[0] : 0xFF;
+            snprintf(d,sizeof(d),"NAK: cmd=%s err=%u",cmdName(p->lastCmd),ne);
+            onDebug(pi,d);
         }
         if(p->state==PD_SC_INIT){
             p->state=PD_ONLINE;
@@ -349,6 +408,7 @@ void OsdpCp::tick() {
     // Clear stale rx buffer (incomplete packet sitting too long)
     if(rxLen>0 && lastRxMs>0 && (now-lastRxMs)>RX_STALE_TIMEOUT_MS){
         if(onDebug) onDebug(curPd, "RX_STALE: clearing incomplete rx data");
+        if(curPd < numPd) pd[curPd].nextTxAllowedMs = now + TX_RECOVERY_BACKOFF_MS;
         rxLen=0;
     }
 
@@ -372,11 +432,13 @@ void OsdpCp::tick() {
                                 i,pd[i].parseFails,pd[i].scActive,pl);
                         onDebug(i,dbg);
                     }
+                    pd[i].nextTxAllowedMs = now + TX_RECOVERY_BACKOFF_MS;
                     // Too many parse failures during SC → break SC for recovery
-                    if(pd[i].parseFails>=5 && pd[i].scActive){
+                    if(pd[i].parseFails>=MAX_PARSE_FAILS && pd[i].scActive){
                         pd[i].scActive=false; pd[i].hadSc=true;
                         pd[i].state=PD_ONLINE; pd[i].parseFails=0;
                         pd[i].scRetries=0; pd[i].lastScAttemptMs=0;
+                        pd[i].lastPollMs=0; pd[i].lastReplyMs=millis();
                         if(onDebug) onDebug(i,"SC_BREAK: too many parse fails, will auto-retry SC");
                         if(onStatus) onStatus(i,pd[i].state);
                     }
@@ -387,19 +449,62 @@ void OsdpCp::tick() {
 
     PdCtx*p=&pd[curPd];
 
-    // SC init timeout
+    // SC init timeout — use lastScAttemptMs (set from `now` at attempt start, never
+    // from millis() inside a callback) to avoid uint32_t underflow that fired this
+    // immediately after SCRYPT was sent.
     if(p->state==PD_SC_INIT&&!p->scActive){
-        if((millis()-p->lastPollMs)>REPLY_TIMEOUT_MS*5){
+        if(p->lastScAttemptMs && (now-p->lastScAttemptMs)>SC_INIT_TIMEOUT_MS){
             p->state=PD_ONLINE;
+            p->lastPollMs=0;
+            p->lastReplyMs=now;
+            p->scRetries++;
             if(onDebug) onDebug(curPd,"SC_TIMEOUT: init timed out, will retry");
         }
         curPd=(curPd+1)%numPd;return;
     }
 
-    // Auto-initiate SC when reader is ONLINE but not secure
-    if(p->state==PD_ONLINE && !p->scActive && p->scRetries<6 &&
-       (now-p->lastScAttemptMs)>=SC_RETRY_INTERVAL_MS){
-        p->lastScAttemptMs=now;
+    bool waitingForReply = (p->lastPollMs != 0) &&
+                           (p->lastReplyMs == 0 || p->lastPollMs > p->lastReplyMs);
+    if(waitingForReply){
+        if((now-p->lastPollMs)<REPLY_TIMEOUT_MS){
+            curPd=(curPd+1)%numPd;return;
+        }
+        p->retryCount++;
+        if(onDebug){
+            char dbg[80];
+            snprintf(dbg,sizeof(dbg),"TX_TIMEOUT: cmd=%s cnt=%d sc=%d state=%d",
+                     cmdName(p->lastCmd),p->retryCount,p->scActive,p->state);
+            onDebug(curPd,dbg);
+        }
+        // Do not replay stale secure-channel frames after a timeout.  Clear the
+        // outstanding marker and let the poller send the next fresh command.
+        p->lastPollMs=0;
+        p->lastReplyMs=now;
+        p->nextTxAllowedMs=now + TX_RECOVERY_BACKOFF_MS;
+    }
+
+    if(p->retryCount>=MAX_TX_RETRIES){
+        if(p->state!=PD_OFFLINE){
+            bool wasSc=p->scActive;
+            p->state=PD_OFFLINE;p->scActive=false;
+            p->comsetPending=false;
+            if(wasSc) p->hadSc=true;
+            if(onStatus)onStatus(curPd,p->state);
+            if(onDebug) onDebug(curPd,"PD_OFFLINE: consecutive tx timeouts");
+        }
+        p->retryCount=0;
+        p->lastPollMs=0;
+        p->lastReplyMs=now;
+    }
+
+    if (now < p->nextTxAllowedMs) {
+        curPd=(curPd+1)%numPd;return;
+    }
+
+    // Auto-initiate SC only when no command is outstanding and not waiting for reply.
+    if(p->state==PD_ONLINE && !p->scActive && !waitingForReply && !p->pendCount &&
+       p->scRetries<6 && (now-p->lastScAttemptMs)>=SC_RETRY_INTERVAL_MS){
+        p->lastScAttemptMs=now;  // set from `now` (safe for uint32_t comparison in timeout check)
         p->scRetries++;
         if(onDebug){
             char dbg[60];
@@ -410,17 +515,7 @@ void OsdpCp::tick() {
         curPd=(curPd+1)%numPd;return;
     }
 
-    if((now-p->lastPollMs)>=POLL_INTERVAL_MS){
-        if(p->retryCount>=3&&p->state!=PD_OFFLINE){
-            bool wasSc=p->scActive;
-            p->state=PD_OFFLINE;p->scActive=false;
-            p->comsetPending=false;
-            if(wasSc) p->hadSc=true;
-            if(onStatus)onStatus(curPd,p->state);
-            if(onDebug) onDebug(curPd,"PD_OFFLINE: 3 consecutive timeouts");
-            p->retryCount=0;
-        }
-        if((now-p->lastReplyMs)>REPLY_TIMEOUT_MS&&p->lastReplyMs>0)p->retryCount++;
+    if(p->lastPollMs==0 || (now-p->lastPollMs)>=POLL_INTERVAL_MS){
         bool hp=false;PendingCmd pc={};
         if(p->pendCount){pc=p->pend[p->pendHead];p->pendHead=(p->pendHead+1)%MAX_PENDING_CMDS;p->pendCount--;hp=true;}
         if(hp&&pc.cmd==CMD_CHLNG)startSecureChannel(p);

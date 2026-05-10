@@ -155,6 +155,12 @@ class OsdpBridge:
     def relay(self, idx, value):
         return self.send(f"RELAY {idx} {value}")
 
+    def relay_gpio(self, enabled=True):
+        return self.send(f"RELAYGPIO {1 if enabled else 0}")
+
+    def firmware_version(self):
+        return self.send("FWVERSION")
+
     def sensor_query(self):
         return self.send("SENSOR?")
 
@@ -169,9 +175,10 @@ class OsdpBridge:
                     tmpTimer=20(2s) permCtrl=0 rest=0
         BUZ: tone=2(default) on=2(200ms) off=0 count=1
         """
-        self.led(reader_idx,
-                 "0 0 2 20 0 2 0 20 0 0 0 0 0")
-        self.buzzer(reader_idx, 2, 2, 0, 1)
+        buz_ok = self.buzzer(reader_idx, 2, 2, 0, 1)
+        led_ok = self.led(reader_idx,
+                          "0 0 2 20 0 2 0 20 0 0 0 0 0")
+        return led_ok and buz_ok
 
     def deny_feedback(self, reader_idx):
         """Red LED flash + warning triple-beep → access denied.
@@ -180,9 +187,10 @@ class OsdpBridge:
                     tmpTimer=20(2s) permCtrl=0 rest=0
         BUZ: tone=2 on=2(200ms) off=2(200ms) count=3
         """
-        self.led(reader_idx,
-                 "0 0 2 3 3 1 0 20 0 0 0 0 0")
-        self.buzzer(reader_idx, 2, 2, 2, 3)
+        buz_ok = self.buzzer(reader_idx, 2, 2, 2, 3)
+        led_ok = self.led(reader_idx,
+                          "0 0 2 3 3 1 0 20 0 0 0 0 0")
+        return led_ok and buz_ok
 
     # ── Background reader thread ──────────────────────────────
     def _reader_loop(self):
@@ -347,6 +355,11 @@ class OsdpBridge:
         if m:
             return {"type": "relay", "index": int(m.group(1)),
                     "state": int(m.group(2)), "ts": ts, "raw": line}
+
+        m = re.match(r"!FWVERSION (.+)", line)
+        if m:
+            return {"type": "fwversion", "version": m.group(1), "ts": ts,
+                    "raw": line}
 
         m = re.match(r"!BOOT (.+)", line)
         if m:

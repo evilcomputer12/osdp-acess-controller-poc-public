@@ -43,6 +43,7 @@ public:
     void sendBioRead(uint8_t i, uint8_t reader, uint8_t type, uint8_t format, uint8_t quality);
     void sendBioMatch(uint8_t i, uint8_t reader, uint8_t type, uint8_t format, uint8_t quality, const uint8_t *tmpl, uint16_t tmplLen);
     void initSecureChannel(uint8_t i);
+    bool isReaderIdle(uint8_t i, uint32_t now, uint32_t guardMs = 0) const;
 
 private:
     uint8_t txBuf[OSDP_MAX_PKT], rxBuf[OSDP_MAX_PKT];
